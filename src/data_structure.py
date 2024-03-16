@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 from dataclasses import field
+from enum import Enum
 from typing import Union
 
 import google.generativeai as genai
@@ -13,19 +14,87 @@ model = genai.GenerativeModel("gemini-pro")
 
 
 def count_llm_tokens(text: str) -> int:
+    if text == "":
+        return 0
     return model.count_tokens(text).total_tokens
 
 
 def remove_noise_space(text: str) -> str:
     return text.strip()
-    # NOTE: I didn't know which is better, so I commented out the code.
+    # NOTE: I didn't know which one is better, so I commented out the code. In some case the latter can be better.
     # return re.sub(r"(?<!\n)\n(?!\n)", " ", text)
+
+
+@dataclass
+class Translator:
+    input_token_border: int
+    output_token_limit: int
+    en_to_jp: float
+    jp_to_en: float
+
+    def is_able_translate_all_words(
+        self,
+        input_token_count: int,
+        *,
+        output_token_count=None,
+        input_language="en",
+        target_language="jp",
+    ) -> bool:
+        if input_token_count > self.input_token_border:
+            return False
+        if output_token_count is not None and output_token_count > self.output_token_limit:
+            return False
+        if output_token_count is None and input_language == "en" and target_language == "jp":
+            output_token_count = input_token_count * self.en_to_jp
+            return self.is_able_translate_all_words(
+                input_token_count,
+                output_token_count=output_token_count,
+                input_language=input_language,
+                target_language=target_language,
+            )
+        return input_token_count <= 10000
+
+
+@dataclass
+class GEMINI_PRO(Translator):
+    def __init__(self):
+        super().__init__(
+            input_token_border=30720, output_token_limit=2048, en_to_jp=4, jp_to_en=0.25
+        )
+
+
+@dataclass
+class GPT(Translator):
+    def __init__(self):
+        pass
+
+
+def translate_text(base_text: str, language: str, context=None) -> str:
+    def append_context(language, target_content, wide_contents) -> str:
+        text = f"""
+        I give you novel's context.
+        === {wide_contents} ===
+        In the following sentence, please translate only the next content inside '<>' into {language}.
+        <{target_content}>"""
+        return text
+
+    if context:
+        base_text = append_context(language, base_text, context)
+    response = model.generate_content(base_text, stream=False)
+    result = ""
+    for chunk in response:
+        result += chunk.text
+    return result
+
+
+def translate_all(self):
+    pass
 
 
 # @dataclass
 # class Sentence:
 # HOLD: Not Implement 'Sentence' dataclass.
-""" We might suffice with the use of the `Line` class instead. Creating sentences by splitting text on periods('.') can be problematic, as shown by this sentence. Ideally, sentences should be treated as atomic pieces of information, but we may not need to explicitly generate them. """
+# We might suffice with the use of the `Line` class instead. Creating sentences by splitting text on periods('.') can be problematic, as shown by this sentence. Ideally, sentences should be treated as atomic pieces of information, but we may not need to explicitly generate them.
 
 
 @dataclass
@@ -98,6 +167,28 @@ class TextComponent:
 
     def __len__(self) -> int:
         return len(self.contents)
+
+    def translate(self, language="jp", context=None) -> None:
+        if self.token_count > 10000 or context:
+            for content in self.contents:
+                content.translate(language, context)
+        if 500 < self.token_count <= 20000:
+            for content in self.contents:
+                content.translate(language, context=self.contents)
+        if self.token_count <= 500:
+            translate_all(language, context=self.contents)
+
+    def get_all_line_texts_with_numbers(self, index=1) -> dict:
+        line_texts = {}
+        for content in self.contents:
+            if isinstance(content, TextComponent):
+                line_texts.update(content.get_all_line_texts_with_numbers(index))
+            elif isinstance(content, Line):
+                if content.text == "":
+                    continue
+                line_texts[index] = content.text
+                index += 1
+        return line_texts
 
 
 @dataclass
@@ -173,6 +264,9 @@ class Line:
     @property
     def paragraph_count(self):
         return 0
+
+    def translate(self, language="jp", context=None) -> str:
+        return translate_text(self._text, language, context)
 
 
 # NOTE: in some book, Paragraphs are not used.
