@@ -3,10 +3,10 @@ import re
 
 from bs4 import BeautifulSoup as bs
 
-from data_structure import Book
-from data_structure import Chapter
-from data_structure import Line
-from data_structure import Section
+from src.data_structure import Book
+from src.data_structure import Chapter
+from src.data_structure import Line
+from src.data_structure import Section
 
 
 def mark_sections(text):
@@ -68,8 +68,8 @@ unsorted_tag_priorities = {
 }
 
 
+# OPTIMIZE: sorted_dict is smarter, but it's just under 0.00.. sec saving)
 def get_specific_key_of_bigger_than_some(name="CHAPTER"):
-    # OPTIMIZE: sorted_dict is smarter, but it's just under 0.00.. sec saving)
     keys = []
     d = unsorted_tag_priorities
     for key in d:
@@ -105,15 +105,6 @@ def replace_text_with_placeholder(html_content):
 
 
 def restore_text_from_placeholder(replaced_html: str, text_placeholders_dict: dict):
-    """Replace the placeholders in the given HTML with the original text values from the text_placeholders_dict.
-
-    Parameters:
-    - replaced_html: The HTML content with the placeholders to replace.
-    - text_placeholders_dict: A dictionary mapping placeholder keys to their original text values.
-
-    Returns:
-    - The HTML content with the placeholders replaced by their original text values.
-    """
     placeholder_pattern = re.compile(r"placeholder\d+")
 
     def restore_text(match: re.Match):
@@ -124,6 +115,7 @@ def restore_text_from_placeholder(replaced_html: str, text_placeholders_dict: di
     return restored_html
 
 
+# REFACTOR: more readable and maintainable.
 def tag_to_priority_str_with_closing(tag, priorities):
     def get_tag_name(tag):
         tag = tag.strip("<>")
@@ -131,19 +123,6 @@ def tag_to_priority_str_with_closing(tag, priorities):
             tag = tag[1:]
         return tag
 
-    """
-    Convert a tag to a string that combines the tag name with its priority number in the format <TAG: priority>
-    for opening tags or </TAG: priority> for closing tags. Uses -1 as the default priority for tags not found in
-    the priorities dictionary.
-
-    Parameters:
-    - tag: The tag string to convert, which can be an opening or a closing tag.
-    - priorities: A dictionary mapping tag names to their priority numbers.
-
-    Returns:
-    - A string representation of the tag with its priority number, including the correct tag opening/closing
-      notation and using -1 for tags not found in the priorities.
-    """
     tag_name = get_tag_name(tag)  # Extract the tag name
     priority = priorities.get(tag_name, -1)  # Get the priority or default to -1
     if tag.startswith("</"):  # Check if it's a closing tag
@@ -165,6 +144,7 @@ def replace_tags_with_rules(text):
     return text
 
 
+# REFACTOR: refactor this function to make it more readable and maintainable.
 def parse_and_correct_html(text):
     tag_or_placeholder_pattern = re.compile(r"<(/?)(\w+)(\d*):p?(\d*)>|placeholder\d+")
     stack = []
@@ -211,6 +191,7 @@ def parse_and_correct_html(text):
     return "".join(result)
 
 
+# REFACTOR: not readable.
 def find_section_boundaries(html, tags):
     tags_regex = "|".join(tags)
     pattern = re.compile(f"<(/)?({tags_regex})(:\\d*)?>")
@@ -226,6 +207,7 @@ def find_section_boundaries(html, tags):
     return boundaries
 
 
+# LOGIC: more smart way to find the tag name
 def construct_sections(html, boundaries):
     sections = []
     open_tag = None
@@ -282,6 +264,8 @@ class Section:
         self.body = body
 
 
+# LOGIC: more samrt way to find the tag name
+# REFACTOR: more good name for each variable and class-name and func-name.
 class HTMLSectionProcessor:
     def __init__(self, html, tags):
         self.html = html
@@ -295,7 +279,6 @@ class HTMLSectionProcessor:
             for match in pattern.finditer(self.html)
         ]
 
-    # _construct_sectionsメソッドの修正例
     def _construct_sections(self, boundaries):
         sections = []
         open_tag = None
@@ -309,10 +292,11 @@ class HTMLSectionProcessor:
                 open_tag = None
         return sections
 
-    # extract_content_from_sectionメソッドの調整
     @staticmethod
     def extract_content_from_section(section) -> tuple[str, list[str]]:
         soup = bs(section, "html.parser")
+        # FIXME: wrong type match in this case.(but work)
+        # NOTE: It works well, but it's not good to use this type hint.
         title, body = (
             extract_title_or_body(soup, "TITLE", True),
             extract_title_or_body(soup, "body"),
@@ -344,12 +328,7 @@ class HTMLSectionProcessor:
         ]
 
 
-def replace_single_newline_with_space(text):
-    # 単独の改行を空白に置換。(?<!\n)と(?!\n)は直前直後に改行がないことを確認する
-    return re.sub(r"(?<!\n)\n(?!\n)", " ", text)
-
-
-tag_list = ["PROLOGUE", "CHAPTER", "EPILOGUE", "THE_END", "TRANSCRIBER_NOTES"]
+chapter_level_tag_list = ["PROLOGUE", "CHAPTER", "EPILOGUE", "THE_END", "TRANSCRIBER_NOTES"]
 
 
 def main():
@@ -378,14 +357,13 @@ def main():
     tag_complited_text = parse_and_correct_html(prioritized_tag_text)
     result = restore_text_from_placeholder(tag_complited_text, text_placeholders)
 
-    processor = HTMLSectionProcessor(result, tag_list)
+    processor = HTMLSectionProcessor(result, chapter_level_tag_list)
     processed_sections = processor.process()
     chapters = []
     for section in processed_sections:
         lines = []
         joined = "\n".join(section.body).split("\n\n")
         for one_line_text in joined:
-            one_line_text = replace_single_newline_with_space(one_line_text)
             lines.append(Line(one_line_text))
         chapters.append(Chapter(_title=section.title, contents=lines))
     print(chapters)

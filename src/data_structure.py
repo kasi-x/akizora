@@ -18,6 +18,8 @@ def count_llm_tokens(text: str) -> int:
 
 def remove_noise_space(text: str) -> str:
     return text.strip()
+    # NOTE: I didn't know which is better, so I commented out the code.
+    # return re.sub(r"(?<!\n)\n(?!\n)", " ", text)
 
 
 # @dataclass

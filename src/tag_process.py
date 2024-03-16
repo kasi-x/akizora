@@ -3,42 +3,41 @@ import re
 from bs4 import BeautifulSoup as bs
 
 
-class Section:
-    def __init__(self, title, body):
-        self.title = title
-        self.body = body
-
-
-class HTMLProcessor:
+class HtmlTagProcessor:
     def __init__(self, html):
         self.html = html
+        self.placeholders = {}
 
     def mark_sections(self):
-        # HTML文書にマークを付け、セクションを識別します。
-        pass
+        patterns = {
+            "CHAPTER": r"(?i)^CHAPTER\s+\d+"
+            # 他のパターンも同様に追加...
+        }
+        for key, pattern in patterns.items():
+            self.html = re.sub(pattern, lambda m: f"<{key}>{m.group(0)}</{key}>", self.html)
 
     def replace_placeholders(self):
-        # プレースホルダーを使用してテキストを一時的に置換します。
-        pass
+        def replacer(match):
+            placeholder = f"PLACEHOLDER_{len(self.placeholders) + 1}"
+            self.placeholders[placeholder] = match.group(0)
+            return placeholder
+
+        self.html = re.sub(r"([^<>]+)", replacer, self.html)
 
     def restore_placeholders(self):
-        # プレースホルダーを元のテキストに戻します。
-        pass
+        for placeholder, text in self.placeholders.items():
+            self.html = self.html.replace(placeholder, text)
 
     def process(self):
-        # メインの処理フローを実行します。
-        pass
+        self.mark_sections()
+        self.replace_placeholders()
+        # ここでHTMLのさらなる処理を行う...
+        self.restore_placeholders()
+        return self.html
 
 
-def main():
-    with open("sample.txt") as file:
-        text = file.read()
-
-    processor = HTMLProcessor(text)
-    processor.process()
-
-    # 処理されたHTMLからセクションを抽出し、必要なデータ構造に変換します。
-
-
-if __name__ == "__main__":
-    main()
+# 使用例
+html_content = "Your HTML content here"
+processor = HTMLProcessor(html_content)
+processed_html = processor.process()
+print(processed_html)
