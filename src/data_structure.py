@@ -26,7 +26,7 @@ def remove_noise_space(text: str) -> str:
     # But in some case, like Askey Art, could use whitespace as art. But Novel's text maight not use white space as an art.
 
 
-# RATIONAL: Change data stracture for higer-priority for Line.
+# RATIONAL: Change data stracture for make higer-priority for Line.
 # The data is based on Book. Howerver the most important data is Line and we treat line as first object. So the additional information of chapter, sentence, paragraph should be inside Line for simple useage. (Maybe not need to rewrite all for this purpose.)
 
 
@@ -37,8 +37,9 @@ class Translator:
     en_to_jp: float
     jp_to_en: float
 
-    def translate_text(self, text: str) -> str:
-        return "not implemented"
+    def translate_text(self, text: str, language="jp", context=None) -> str:
+        text = self.build_text(text, language, context)
+        return self.call_llm(text)
 
     def call_llm(self, text: str) -> str:
         return "not implemented"
@@ -86,7 +87,7 @@ class GEMINI_PRO(Translator):
         )
         self.model = genai.GenerativeModel("gemini-pro")
 
-    def translate_text(self, text: str) -> str:
+    def raw_text_communicate(self, text: str) -> str:
         result = ""
         response = model.generate_content(text)
         for chunk in response:
@@ -98,24 +99,6 @@ class GEMINI_PRO(Translator):
 class GPT(Translator):
     def __init__(self):
         pass  # TODO: Implement GPT's Translator
-
-
-def translate_text(base_text: str, language: str, context=None) -> str:
-    def append_context(language, target_content, wide_contents) -> str:
-        text = f"""
-        I give you novel's context.
-        === {wide_contents} ===
-        In the following sentence, please translate only the next content inside '<>' into {language}.
-        <{target_content}>"""
-        return text
-
-    if context:
-        base_text = append_context(language, base_text, context)
-    response = model.generate_content(base_text, stream=False)
-    result = ""
-    for chunk in response:
-        result += chunk.text
-    return result
 
 
 # @dataclass
@@ -195,15 +178,15 @@ class TextComponent:
     def __len__(self) -> int:
         return len(self.contents)
 
-    def translate(self, language="jp", context=None) -> None:
+    def translate(self, language="jp", model=GEMINI_PRO, context=None) -> None:
         if self.token_count > 10000 or context:
             for content in self.contents:
-                content.translate(language, context)
+                content.translate(language, model, context)
         if 500 < self.token_count <= 20000:
             for content in self.contents:
-                content.translate(language, context=self.contents)
+                content.translate(language, model, context=self.contents)
         if self.token_count <= 500:
-            self.translate_all(language)
+            self.translate_all(language, model)
 
     def update_translated_text(self, base_text, translated_text) -> None:
         for content in self.contents:
@@ -214,7 +197,7 @@ class TextComponent:
             self.update_translated_text(base_text, translated_text)
 
     # REFACTOR: This method is too long. It should be refactored.
-    def translate_all(self, language="jp") -> None:
+    def translate_all(self, language="jp", model=GEMINI_PRO) -> None:
         lines_with_index = self.get_all_line_texts_with_numbers()
         # MEMO: Maybe we don't need to sort the dictionary.(I didn't check it yet.)
         lines_with_index = dict(sorted(lines_with_index.items()))
@@ -225,7 +208,7 @@ class TextComponent:
         for index, line in lines_with_index.items():
             base_text += f"<{index}> {line}"
 
-        translated_text = translate_text(base_text, language)
+        translated_text = model.raw_text_communicate(base_text)
         translated_dict = {}
         for index in lines_with_index:
             tag_start = translated_text.find(f"<{index}>")
@@ -350,8 +333,8 @@ class Line:
     def paragraph_count(self):
         return 0
 
-    def translate(self, language="jp", context=None) -> str:
-        return translate_text(self._text, language, context)
+    def translate(self, language="jp", model=GEMINI_PRO, context=None) -> str:
+        return model.translate_text(self.contents, language, context)
 
 
 # NOTE: in some book, Paragraphs are not used.
