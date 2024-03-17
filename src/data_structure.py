@@ -1,7 +1,6 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 from dataclasses import field
-from enum import Enum
 from typing import Union
 
 import google.generativeai as genai
@@ -14,15 +13,21 @@ model = genai.GenerativeModel("gemini-pro")
 
 
 def count_llm_tokens(text: str) -> int:
-    if text == "":
+    if text in ("", " ", "\n", "\t", "\r"):
         return 0
     return model.count_tokens(text).total_tokens
 
 
 def remove_noise_space(text: str) -> str:
     return text.strip()
-    # NOTE: I didn't know which one is better, so I commented out the code. In some case the latter can be better.
+    # NOTE: In some case the latter can be better.
     # return re.sub(r"(?<!\n)\n(?!\n)", " ", text)
+    # NOTE: I remove wastefull whitespace.
+    # But in some case, like Askey Art, could use whitespace as art. But Novel's text maight not use white space as an art.
+
+
+# RATIONAL: Change data stracture for higer-priority for Line.
+# The data is based on Book. Howerver the most important data is Line and we treat line as first object. So the additional information of chapter, sentence, paragraph should be inside Line for simple useage. (Maybe not need to rewrite all for this purpose.)
 
 
 @dataclass
@@ -32,17 +37,35 @@ class Translator:
     en_to_jp: float
     jp_to_en: float
 
+    def translate_text(self, text: str) -> str:
+        return "not implemented"
+
+    def call_llm(self, text: str) -> str:
+        return "not implemented"
+
+    def build_text(self, text: str, language: str, context=None) -> str:
+        if context:
+            text = self.append_context(language, text, context)
+        return text
+
+    def append_context(self, language, target_content, wide_contents) -> str:
+        text = f"""
+        I give you novel's context.
+        === {wide_contents} ===
+        In the following sentence, please translate only the next content inside '<>' into {language}.
+        <{target_content}>"""
+        return text
+
     def is_able_translate_all_words(
         self,
         input_token_count: int,
-        *,
         output_token_count=None,
         input_language="en",
         target_language="jp",
     ) -> bool:
         if input_token_count > self.input_token_border:
             return False
-        if output_token_count is not None and output_token_count > self.output_token_limit:
+        if output_token_count and output_token_count > self.output_token_limit:
             return False
         if output_token_count is None and input_language == "en" and target_language == "jp":
             output_token_count = input_token_count * self.en_to_jp
@@ -61,12 +84,20 @@ class GEMINI_PRO(Translator):
         super().__init__(
             input_token_border=30720, output_token_limit=2048, en_to_jp=4, jp_to_en=0.25
         )
+        self.model = genai.GenerativeModel("gemini-pro")
+
+    def translate_text(self, text: str) -> str:
+        result = ""
+        response = model.generate_content(text)
+        for chunk in response:
+            result += chunk.text
+        return result
 
 
 @dataclass
 class GPT(Translator):
     def __init__(self):
-        pass
+        pass  # TODO: Implement GPT's Translator
 
 
 def translate_text(base_text: str, language: str, context=None) -> str:
@@ -85,10 +116,6 @@ def translate_text(base_text: str, language: str, context=None) -> str:
     for chunk in response:
         result += chunk.text
     return result
-
-
-def translate_all(self):
-    pass
 
 
 # @dataclass
@@ -176,19 +203,76 @@ class TextComponent:
             for content in self.contents:
                 content.translate(language, context=self.contents)
         if self.token_count <= 500:
-            translate_all(language, context=self.contents)
+            self.translate_all(language)
 
-    def get_all_line_texts_with_numbers(self, index=1) -> dict:
-        line_texts = {}
+    def update_translated_text(self, base_text, translated_text) -> None:
         for content in self.contents:
-            if isinstance(content, TextComponent):
-                line_texts.update(content.get_all_line_texts_with_numbers(index))
-            elif isinstance(content, Line):
-                if content.text == "":
-                    continue
-                line_texts[index] = content.text
-                index += 1
-        return line_texts
+            if isinstance(content, Line) and content.contents == base_text:
+                content.translated = translated_text
+                break
+
+            self.update_translated_text(base_text, translated_text)
+
+    # REFACTOR: This method is too long. It should be refactored.
+    def translate_all(self, language="jp") -> None:
+        lines_with_index = self.get_all_line_texts_with_numbers()
+        # MEMO: Maybe we don't need to sort the dictionary.(I didn't check it yet.)
+        lines_with_index = dict(sorted(lines_with_index.items()))
+        base_text = ""
+        # TODO: CHECK how we can improve the following prompt.
+        prompt = f"""Translate text into {language} with index number like "<1>hello <2>world." into "<1>こんにちは <2>世界." The following sentences is the original text.\n"""
+        base_text += prompt
+        for index, line in lines_with_index.items():
+            base_text += f"<{index}> {line}"
+
+        translated_text = translate_text(base_text, language)
+        translated_dict = {}
+        for index in lines_with_index:
+            tag_start = translated_text.find(f"<{index}>")
+            if tag_start == -1:
+                continue
+            tag_end = tag_start + len(f"<{index}>")
+
+            next_tag_start = translated_text.find(f"<{index + 1}>")
+            if next_tag_start == -1:
+                next_tag_start = len(translated_text) - 1
+                break
+
+            translated_dict[index] = translated_text[tag_end + 1 : next_tag_start - 1]
+        # MEMO: making translated_dict is finished in this line.
+
+        # MEMO: Start matching the translated text with the original text for save translated_text in accurate place.
+        for translated_dict_index, translated_text in translated_dict.values():
+            base_text = lines_with_index.get(translated_dict_index, "")
+            if not base_text:
+                print(f"Index <{index}> is not found in lines_with_index dictionary.")
+                continue
+            self.update_translated_text(base_text, translated_text)
+
+    def get_content(
+        self, kind: str = "line", contents=None
+    ) -> list[Union["TextComponent", "Line"]]:
+        result = []
+        if not contents:
+            contents = self.contents
+        for content in contents:
+            # if isinstance(content, Line):  # it's almost ok, but if you want to grep chapter/section/paragraph, you should use 'kind' argument.
+            if content.kind == kind:
+                result.append(content)
+            else:
+                # TYPE: Line don't have 'get_contents' method but it's okay.
+                result.extend(self.get_contents(kind, content.contents))  # type: ignore
+        return result
+
+    def get_all_line_texts_with_numbers(self, index=0) -> dict:
+        line_text_dict = {}
+        lines: list[Lines] = self.get_contents(kind="line")  # type: ignore
+        for line in lines:
+            if line.contents == "":
+                continue
+            line_text_dict[index] = line.contents
+            index += 1
+        return line_text_dict
 
 
 @dataclass
@@ -196,6 +280,7 @@ class Line:
     _text: str = field(default="")
     _token_count: int | None = field(default=None, init=False)
     kind = "line"
+    translated: str = field(default="")
 
     def __post_init__(self):
         self.text = remove_noise_space(self._text)
@@ -294,7 +379,7 @@ class Paragraph(TextComponent):
         return 1
 
 
-# NOTE: in some book, sections are not used.
+# NOTE: in some book, Sections are not used.
 @dataclass
 class Section(TextComponent):
     contents: list[Paragraph | Line] = field(default_factory=list)
