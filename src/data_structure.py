@@ -28,6 +28,7 @@ def remove_noise_space(text: str) -> str:
 
 # RATIONAL: Change data stracture for make higer-priority for Line.
 # The data is based on Book. Howerver the most important data is Line and we treat line as first object. So the additional information of chapter, sentence, paragraph should be inside Line for simple useage. (Maybe not need to rewrite all for this purpose.)
+# RAIONAL2 : I should have line and stracture separate data-stractures.
 
 
 @dataclass
@@ -79,7 +80,6 @@ class Translator:
         return input_token_count <= 10000
 
 
-@dataclass
 class GEMINI_PRO(Translator):
     def __init__(self):
         super().__init__(
@@ -87,7 +87,7 @@ class GEMINI_PRO(Translator):
         )
         self.model = genai.GenerativeModel("gemini-pro")
 
-    def raw_text_communicate(self, text: str) -> str:
+    def call_llm(self, text: str) -> str:
         result = ""
         response = model.generate_content(text)
         for chunk in response:
@@ -203,12 +203,13 @@ class TextComponent:
         lines_with_index = dict(sorted(lines_with_index.items()))
         base_text = ""
         # TODO: CHECK how we can improve the following prompt.
+        # REFACTOR: this prompt and method should move to Translator class.
         prompt = f"""Translate text into {language} with index number like "<1>hello <2>world." into "<1>こんにちは <2>世界." The following sentences is the original text.\n"""
         base_text += prompt
         for index, line in lines_with_index.items():
             base_text += f"<{index}> {line}"
 
-        translated_text = model.raw_text_communicate(base_text)
+        translated_text = model.call_llm(base_text)
         translated_dict = {}
         for index in lines_with_index:
             tag_start = translated_text.find(f"<{index}>")
@@ -334,7 +335,7 @@ class Line:
         return 0
 
     def translate(self, language="jp", model=GEMINI_PRO, context=None) -> str:
-        return model.translate_text(self.contents, language, context)
+        return model.translate_text(self.contents, language, context)  # type: ignore
 
 
 # NOTE: in some book, Paragraphs are not used.
