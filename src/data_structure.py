@@ -28,15 +28,15 @@ def remove_noise_space(text: str) -> str:
 
 # RATIONAL: Change data stracture for make higer-priority for Line.
 # The data is based on Book. Howerver the most important data is Line and we treat line as first object. So the additional information of chapter, sentence, paragraph should be inside Line for simple useage. (Maybe not need to rewrite all for this purpose.)
-# RAIONAL2 : I should have line and stracture separate data-stractures.
+# RAIONAL2 : I should have line and stracture separate data-stractures and adapter.
 
 
-@dataclass
 class Translator:
-    input_token_border: int
-    output_token_limit: int
-    en_to_jp: float
-    jp_to_en: float
+    def __init__(self, input_token_border, output_token_limit, en_to_jp, jp_to_en):
+        self.input_token_border: int = input_token_border
+        self.output_token_limit: int = output_token_limit
+        self.en_to_jp: float = en_to_jp
+        self.jp_to_en: float = jp_to_en
 
     def translate_text(self, text: str, language="jp", context=None) -> str:
         text = self.build_text(text, language, context)
@@ -95,10 +95,12 @@ class GEMINI_PRO(Translator):
         return result
 
 
-@dataclass
 class GPT(Translator):
     def __init__(self):
         pass  # TODO: Implement GPT's Translator
+
+    def call_llm(self, text: str) -> str:
+        return f"{text} inputed, but not implemented"
 
 
 # @dataclass
@@ -178,7 +180,10 @@ class TextComponent:
     def __len__(self) -> int:
         return len(self.contents)
 
-    def translate(self, language="jp", model=GEMINI_PRO, context=None) -> None:
+    def translate(
+        self, input_language="en", language="jp", model=GEMINI_PRO, context=None
+    ) -> None:
+        model.is_able_translate_all_words(input_token_count=self.token_count)
         if self.token_count > 10000 or context:
             for content in self.contents:
                 content.translate(language, model, context)
@@ -197,7 +202,7 @@ class TextComponent:
             self.update_translated_text(base_text, translated_text)
 
     # REFACTOR: This method is too long. It should be refactored.
-    def translate_all(self, language="jp", model=GEMINI_PRO) -> None:
+    def translate_all(self, language="jp", model: Translator = GEMINI_PRO) -> None:  # type: ignore
         lines_with_index = self.get_all_line_texts_with_numbers()
         # MEMO: Maybe we don't need to sort the dictionary.(I didn't check it yet.)
         lines_with_index = dict(sorted(lines_with_index.items()))
@@ -223,7 +228,7 @@ class TextComponent:
                 break
 
             translated_dict[index] = translated_text[tag_end + 1 : next_tag_start - 1]
-        # MEMO: making translated_dict is finished in this line.
+        # CONTEXT: making translated_dict is finished in this line.
 
         # MEMO: Start matching the translated text with the original text for save translated_text in accurate place.
         for translated_dict_index, translated_text in translated_dict.values():
@@ -250,7 +255,7 @@ class TextComponent:
 
     def get_all_line_texts_with_numbers(self, index=0) -> dict:
         line_text_dict = {}
-        lines: list[Lines] = self.get_contents(kind="line")  # type: ignore
+        lines: list[Line] = self.get_contents(kind="line")  # type: ignore
         for line in lines:
             if line.contents == "":
                 continue
@@ -265,6 +270,7 @@ class Line:
     _token_count: int | None = field(default=None, init=False)
     kind = "line"
     translated: str = field(default="")
+    id: int = field(default_factory=int)
 
     def __post_init__(self):
         self.text = remove_noise_space(self._text)
@@ -334,8 +340,10 @@ class Line:
     def paragraph_count(self):
         return 0
 
-    def translate(self, language="jp", model=GEMINI_PRO, context=None) -> str:
-        return model.translate_text(self.contents, language, context)  # type: ignore
+    def translate(
+        self, input_language="en", output_language="jp", model=GEMINI_PRO, context=None
+    ) -> str:
+        return model.translate_text(self.contents, output_language, context)  # type: ignore
 
 
 # NOTE: in some book, Paragraphs are not used.
