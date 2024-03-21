@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from dataclasses import field
 from typing import Optional
 from typing import Union, Any
-import inspect
 
 import google.generativeai as genai
 from dotenv import load_dotenv
@@ -22,16 +21,11 @@ load_dotenv("GOOGLE_API_KEY")
 PromptScript: TypeAlias  = str
 TranslatedLine: TypeAlias  = str
 RAW_LLM_RESOPNSE: TypeAlias  = str
-NATIVE_CONTENT: TypeAlias  = str
 
 class Language(Enum):
     # ISO 639-3
     jpn = "Japanese"
     eng = "English"  # US English vs UK English
-
-class LLM_TYPE(Enum):
-    GEMINI_PRO = "gemini-pro"
-    GPT3 = "gpt3"
 
 
 GEMINI_TOKEN_COSTS = {
@@ -40,38 +34,23 @@ GEMINI_TOKEN_COSTS = {
     Language.eng: 1,
 }
 
-
-
 @dataclass
 class Line:
-    _text: NATIVE_CONTENT = field(default="")
-    base_language: Language = field(default=Language.eng)
-    _token_count: dict[Language, dict[LLM_TYPE, int]] = field(default={}, init=False)
+    _text: str = field(default="")
+    _token_count: int | None = field(default=None, init=False)
     kind = "line"
-    translated: dict[Language, dict[LLM_TYPE, TranslatedLine]] = field(default={}, init=False)
+    translated: dict[Language, TranslatedLine] = field(default={})
     id: int = field(default=-1, init=False)
 
     def __post_init__(self):
         self.text = remove_noise_space(self._text)
 
-    def token_count(self, language:Language, llm_name:LLM_TYPE) -> int:
-        if self._token_count.get(language) and self._token_count.get(language).get(llm_type): # type: ignore
-            return self._token_count[language][llm_name]
-        else:
+    @property
+    def token_count(self) -> int:
+        if self._token_count is None:
             msg = "Token count is not set yet."
             raise ValueError(msg)
-
-    def get_selected_language_text(self, language:Language, llm_name:LLM_TYPE) -> Optional[str|TranslatedLine]:
-        try:
-            return self.translated[language][llm_name]
-        except KeyError as e:
-            if self.base_language == language:
-                logger.info("selected language is base language", at="get_selected_language_text", language=language, base_language=self.base_language, line=self)
-                return self._text
-            logger.error("failed to get selected language text", at="get_selected_language_text", error=e, language=language, llm_name=llm_name, line=self)
-            return None
-
-
+        return self._token_count
 
     @property
     def contents(self):
@@ -86,8 +65,8 @@ class Line:
         return self._text
 
     @text.setter
-    def text(self, text: str) -> None:
-        self._text = remove_noise_space(text)
+    def text(self, value: str) -> None:
+        self._text = remove_noise_space(value)
         self._token_count = None  # initialize token count. it can make humman error.
 
     @property
@@ -133,12 +112,6 @@ class TextComponent:
     _title: str = field(default="")
     contents: list[Union["TextComponent", "Line"]] = field(default_factory=list)
     kind = "Base text componententent"
-    base_language: Language = Language.eng
-
-    def __post_init__(self):
-        for content in self.contents:
-            content.base_language = self.base_language
-
 
     def __iter__(self) -> Iterable:
         return iter(self.contents)
@@ -147,8 +120,9 @@ class TextComponent:
     def show_conets(self):
         return [content.show_conets for content in self.contents]
 
-    def token_count(self, language:Language, llm_name:LLM_TYPE) -> int:
-        return sum(content.token_count(language, llm_name) for content in self.contents)
+    @property
+    def token_count(self) -> int:
+        return sum(content.token_count for content in self.contents)
 
     @property
     def show_conets_with_title(self):
@@ -218,27 +192,33 @@ AnyContet :TypeAlias = Line|list[Line]|TextComponent|list[TextComponent]
 
 @dataclass
 class PromptContext:
-    input_data :AnyContet
+    input_data :Line|list[Line]
     line : Optional[Line] = field(default=None)
     lines : Optional[list["Line"]] = field(default=None)
     from_language: Language = Language.eng
     to_language: Language = Language.jpn
     target_index: Optional[list[int]] = None
+    tokens: Optional[int] = field(default=None)
 
     def __post_init__(self):
-        if isinstance(self.input_data, Line):
-            self.line = self.input_data
-        elif isinstance(self.input_data, list) and isinstance(self.input_data[0], Line) and len(self.input_data) == 1:
-            self.line = self.input_data[0] # type: ignore
-        elif isinstance(self.input_data, list) and isinstance(self.input_data[0], Line):
+        if self.is_single_line():
+            self.line = self.input_data # type: ignore
+        elif self.is_multi_line():
             self.lines = self.input_data # type: ignore
-        elif isinstance(self.input_data, TextComponent):
-            self.lines = self.input_data.lines
-        elif isinstance(self.input_data, list) and isinstance(self.input_data[0], TextComponent):
-            self.lines = [line for component in self.input_data for line in component.lines]
         else:
-            logger.error("line value isn't set.", kind="ValueTypeError", at="PromptContext", when="get_line_value", value_type= type(self.input_data), value=self.input_data)
+            logger.error("line value isn't set.", kind="ValueTypeError", at="PromptContext", when="get_line_value", value_type= type(self.line), value=self.line)
 
+    def is_single_line(self) -> bool:
+        return isinstance(self.input_data, Line)
+
+    def is_multi_line(self) -> bool:
+        return isinstance(self.input_data, list) and isinstance(self.input_data[0], Line)
+
+    def is_single_component(self) -> bool:
+        return isinstance(self.input_data, TextComponent)
+
+    def is_multi_component(self) -> bool:
+        return isinstance(self.input_data, list) and isinstance(self.input_data[0], TextComponent)
 
 @dataclass
 class Prompt:
@@ -274,18 +254,19 @@ class TranslateResult:
 
 
 class PromptBuilder:
-    def __init__(self, model, context:PromptContext):
+    def __init__(self, model, any_content: AnyContet):
         self.model = model
-        self.context = context
+        self.any_content = any_content
 
-    def create_translate_prompt(self) -> Prompt:
-        if self.context.target_index:
+
+    def create_translate_prompt(self, context:PromptContext) -> Prompt:
+        if context.target_index:
             pass
             # return build_contextual_translate_prompt(context)
-        elif self.context.is_single_line():
+        elif context.is_single_line():
             pass
             # return build_single_line_transtlate_prompt(context)
-        elif self.context.is_multi_line():
+        elif context.is_multi_line():
             pass
             # return build_multi_line_translate_prompt(context)
         else:
@@ -332,8 +313,6 @@ class PromptBuilder:
     #         result += "<end>"
     #     return Prompt(result.strip(), context)
 
-class PromptSizeError(Exception):
-    pass
 
 class BookTranslaor:
     def __init__(self, book, model, from_language:Language=Language.eng, to_language:Language=Language.jpn):
@@ -343,53 +322,15 @@ class BookTranslaor:
         self.to_language = to_language
         self.calc_book_token_count()
 
-    def call_prompt_builder(self, context:PromptContext) -> PromptBuilder:
-        return PromptBuilder(self.model, context)
+    def create_segment_prompt_from_lines(self, lines: list[Line]) -> list[Prompt]:
 
-    def create_context(self, any_content: AnyContet, target_index: Optional[int] = None) -> PromptContext:
-        return PromptContext(input_data=any_content, from_language=self.from_language, to_language=self.to_language, target_index=target_index, tokens=self.get_token_count(any_content))
+    def create_segment_prompt_from_component(self, component: TextComponent) -> list[Prompt]:
+        if self.is_abdle_to_send_this_content(component):
+            return [self.call_prompt_builder(component.lines).create_translate_prompt(self.from_language, self.to_language)]
 
-    def create_segment_prompt_from_lines(self, data: list[Line]) -> list[Prompt]:
-        if self.is_abdle_to_send_this_content(data):
-            try:
-                context = self.create_context(data)
-                a_prompt = self.call_prompt_builder(data).create_translate_prompt(context)
-                return [a_prompt]
-            except PromptSizeError as e:
-                return self.create_segment_prompt_from_any(data[:])
-            except Exception as e:
-                logger.error("failed to create prompt", function_name=inspect.currentframe().f_code.co_name, error=e, data=data, context=context) # type: ignore
-                raise ValueError(f"failed to create prompt {e}")
-
-    def create_segment_prompt_from_component(self, data: TextComponent) -> list[Prompt]:
-        if self.is_abdle_to_send_this_content(data):
-            try:
-                context = self.create_context(data)
-                a_prompt = self.call_prompt_builder(data.lines).create_translate_prompt(context)
-                return [a_prompt]
-            except PromptSizeError as e:
-                return self.create_segment_prompt_from_any(data.contents)
-            except Exception as e:
-                logger.error("failed to create prompt", function_name=inspect.currentframe().f_code.co_name, error=e, data=data, context=context) # type: ignore
-                raise ValueError(f"failed to create prompt {e}")
-
-
-    def create_segment_prompt_from_line(self, data: Line) -> list[Prompt]: # type: ignore
-         if self.is_abdle_to_send_this_content(data):
-            try:
-                context = self.create_context(data)
-                a_prompt = self.call_prompt_builder(data).create_translate_prompt(context)
-                return [a_prompt]
-            except PromptSizeError as e:
-                logger.error("failed to create prompt", at="create_segment_prompt_from_line", error=e, data=data)
-                raise ValueError(f"failed to create prompt {e}, data={data}")
-            except Exception as e:
-                logger.error("failed to create prompt", function_name=inspect.currentframe().f_code.co_name, error=e, component=component, context=context) # type: ignore
-                raise ValueError(f"failed to create prompt {e}")
-
+    def create_segment_prompt_from_line(self, line: Line) -> list[Prompt]:
 
     def create_segment_prompt_from_components(self, components: list[TextComponent]) -> list[Prompt]:
-        pass
 
     def create_segment_prompt_from_any(self, any_content: AnyContet=None) -> list[Prompt]:
         if any_content is None:
@@ -404,30 +345,53 @@ class BookTranslaor:
             return self.create_segment_prompt_from_lines(any_content)
 
 
+        if self.is_abdle_to_send_this_content(any_content):
+            a_prompt:Prompt = self.call_prompt_builder(any_content).create_translate_prompt(self.from_language, self.to_language)
+            if self.calc_script_token_affordability(a_prompt) > 0:
+                return [a_prompt]
+            else:
+                return self.try_next_challenge_with_small_chunk(any_content)
+            # return self.create_segment_for_prompt(any_content.contents)
+
+    def try_next_challenge_with_small_chunk(self, any_content: AnyContet) -> list[Prompt]:
+        if isinstance(any_content, Line):
+            self.this_line_is_too_big_to_translate(any_content)
+        if isinstance(any_content[0], Line):
+            pass
+        else:
+            return [self.create_segment_for_prompt(content) for content in any_content.conetnts]
+
+
     def this_line_is_too_big_to_translate(self, line: Line) -> None:
         logger.error("one line is too big to translate", at="this_line_is_too_big_to_translate", line=line)
 
 
 
+    def call_prompt_builder(self, content) -> Prompt:
+        pass
 
-    # def make_prompt(self, any_content: Optional[AnyContet]=None):
-    #     if any_content is None:
-    #         return self.make_prompt(self.book)
-    #
-    #     if isinstance(any_content, Line):
-    #         a_line :Line = any_content
-    #         if self.is_abdle_to_send_this_content(any_content):
-    #
-    #
-    #     if self.is_abdle_to_send_this_content(any_content):
-    #         lines = any_content.lines()
-    #         return [Prompt(self.build_text(any_content, self.target_language))]
-    #
+        # return PromptBuilder(self.model)
+
+
+
+
+    def make_prompt(self, any_content: Optional[AnyContet]=None):
+        if any_content is None:
+            return self.make_prompt(self.book)
+
+        if isinstance(any_content, Line):
+            a_line :Line = any_content
+            if self.is_abdle_to_send_this_content(any_content):
+
+
+        if self.is_abdle_to_send_this_content(any_content):
+            lines = any_content.lines()
+            return [Prompt(self.build_text(any_content, self.target_language))]
+
 
     def calc_book_token_count(self) -> None:
         for line in self.book.lines:
-            line.token_count[model.name][self.from_language]] = self.model.count_tokens(line.contents)
-
+            line.token_count = self.model.count_tokens(line.contents)
 
     def calc_script_token_affordability(self, prompt: Prompt) -> int:
         return self.model.input_token_limit - self.model.count_tokens(prompt.script)
@@ -496,7 +460,7 @@ def append_single_context(self, language, target_content, wide_contents) -> str:
     return text
 
 
-def remove_noise_space(text: str) -> str:
+def remove_noise_space(self, text: str) -> str:
     return text.strip()
     # NOTE: In some case the latter can be better.
     # return re.sub(r"(?<!\n)\n(?!\n)", " ", text)
@@ -513,8 +477,7 @@ from abc import abstractmethod
 
 
 class LLM(ABC):
-    def __init__(self, name, input_token_limit, output_token_limit, en_to_jp, jp_to_en):
-        self.name: LLM_TYPE = name
+    def __init__(self, input_token_limit, output_token_limit, en_to_jp, jp_to_en):
         self.input_token_limit: int = input_token_limit
         self.output_token_limit: int = output_token_limit
         self.en_to_jp: float = en_to_jp
@@ -534,7 +497,7 @@ class LLM(ABC):
 class GEMINI_PRO(LLM):
     def __init__(self):
         super().__init__(
-            name = LLM_TYPE.GEMINI_PRO, input_token_limit=30720, output_token_limit=2048, en_to_jp=5, jp_to_en=0.2,
+            input_token_limit=30720, output_token_limit=2048, en_to_jp=5, jp_to_en=0.2,
         )
         self.model = genai.GenerativeModel("gemini-pro")
 
@@ -638,26 +601,21 @@ class Chapter(TextComponent):
 class Book(TextComponent):
     _title: str = field(default="NO_BOOK_TITLE")
     contents: list[Chapter | Paragraph | Line] = field(default_factory=list)
-    base_language: str = "en"
+    language: str = "en"
     kind = "book"
 
 
-
-
 class BookTranslater(Book, LLM):
-    def __init__(self, book, model, translate_base_language = None ,target_language="jp"):
+    def __init__(self, book, model, target_language="jp"):
         self.book = book
         self.model = model
-        if translate_base_language:
-            self.input_language = translate_base_language
-        else:
-            self.input_language = book.base_language
+        self.input_language = model.language
         self.target_language = target_language
         self.book_token_count()
 
     def book_token_count(self) -> None:
         for line in self.book.lines:
-            line.token_count(self.model.name, self.input_language) = self.model.count_tokens(line.contents)
+            line.token_count = self.model.count_tokens(line.contents)
 
     def make_prompt_with_line(self, line: Line) -> Prompt:
         return self.build_single_line_translate_prompt(line)
