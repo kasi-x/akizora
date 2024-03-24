@@ -3,10 +3,39 @@ import re
 
 from bs4 import BeautifulSoup as bs
 
-from src.data_structure import Book
-from src.data_structure import Chapter
-from src.data_structure import Line
-from src.data_structure import Section
+# from src.book_domain import Book
+# from src.book_domain import Chapter
+# from src.book_domain import Line
+# from src.book_domain import Section
+#
+
+
+class ProtoTextComponent:
+    def __init__(self, contents):
+        self.contents = contents
+
+
+class ProtoChapter:
+    def __init__(self, title, contents):
+        self.title = title
+        self.contents = contents
+
+
+class ProtoBook:
+    def __init__(self, title, contents):
+        self.title = title
+        self.ccontents = contents
+
+
+class ProtoSection:
+    def __init__(self, title, contents):
+        self.title = title
+        self.contents = contents
+
+
+class ProtoLine:
+    def __init__(self, text):
+        self.text = text
 
 
 def mark_sections(text):
@@ -224,44 +253,29 @@ def construct_sections(html, boundaries):
     return sections
 
 
-def extract_content_from_section(section):
-    soup = bs(section, "html.parser")
-    title = extract_title_or_body(soup, "TITLE", True)
-    body = extract_title_or_body(soup, "body")
-
-    # Adjust title or body if they are not found
-    if not title and not body:
-        # If both title and body are missing, use raw text as the title.
-        title = soup.get_text(strip=True)
-    elif title and not body:
-        # If title exists but body is missing, use raw text as the body.
-        body = [soup.get_text(strip=True)]
-
-    return title, body
+def make_section(title, body, language="en"):
+    return ProtoSection(title, body)
 
 
-def extract_title_or_body(soup, tag, is_title=False):
-    if is_title:
-        title_tag = soup.find(lambda tag: tag.name.upper().endswith("TITLE"))
-        return title_tag.get_text(strip=True) if title_tag else ""
-    else:
-        body_tag = soup.find(tag)
-        return body_tag.get_text(strip=True).split("\n") if body_tag else []
+def extract_title(soup) -> str:
+    title_tag = soup.find(lambda tag: tag.name.upper().endswith("TITLE"))
+    return title_tag.get_text(strip=True) if title_tag else ""
 
 
-def process_html_into_sections(html_text, tag_list):
-    boundaries = find_section_boundaries(html_text, tag_list)
-    raw_sections = construct_sections(html_text, boundaries)
-    processed_sections = [
-        Section(*extract_content_from_section(section)) for _, section in raw_sections
-    ]
-    return processed_sections
+def extract_body(soup) -> list[str]:
+    tag = "body"
+    body_tag = soup.find(tag)
+    return body_tag.get_text(strip=True).split("\n") if body_tag else []
 
 
-class Section:
-    def __init__(self, title, body):
-        self.title = title
-        self.body = body
+# def process_html_into_sections(html_text, tag_list):
+#     boundaries = find_section_boundaries(html_text, tag_list)
+#     raw_sections = construct_sections(html_text, boundaries)
+#     processed_sections = [
+#         Section(*extract_content_from_section(section)) for _, section in raw_sections
+#     ]
+#     return processed_sections
+#
 
 
 # LOGIC: more samrt way to find the tag name
@@ -295,12 +309,7 @@ class HTMLSectionProcessor:
     @staticmethod
     def extract_content_from_section(section) -> tuple[str, list[str]]:
         soup = bs(section, "html.parser")
-        # FIXME: wrong type match in this case.(but work)
-        # NOTE: It works well, but it's not good to use this type hint.
-        title, body = (
-            extract_title_or_body(soup, "TITLE", True),
-            extract_title_or_body(soup, "body"),
-        )
+        title, body = extract_title(soup), extract_body(soup)
 
         if not title and not body:
             title: str = soup.get_text(strip=True)
@@ -324,7 +333,8 @@ class HTMLSectionProcessor:
         boundaries = self._find_section_boundaries()
         raw_sections = self._construct_sections(boundaries)
         return [
-            Section(*self.extract_content_from_section(section)) for _, section in raw_sections
+            ProtoSection(*self.extract_content_from_section(section))
+            for _, section in raw_sections
         ]
 
 
@@ -362,10 +372,10 @@ def main():
     chapters = []
     for section in processed_sections:
         lines = []
-        joined = "\n".join(section.body).split("\n\n")
+        joined = "\n".join(section.contents).split("\n\n")
         for one_line_text in joined:
-            lines.append(Line(one_line_text))
-        chapters.append(Chapter(_title=section.title, contents=lines))
+            lines.append(ProtoLine(one_line_text))
+        chapters.append(ProtoChapter(title=section.title, contents=lines))
     print(chapters)
 
 
