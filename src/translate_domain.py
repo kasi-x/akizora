@@ -1,15 +1,8 @@
-import inspect
 import re
 from abc import ABC
 from abc import abstractmethod
-from collections.abc import Iterable
 from dataclasses import dataclass
 from dataclasses import field
-from enum import Enum
-from typing import Any
-from typing import Optional
-from typing import TypeAlias
-from typing import Union
 
 from dotenv import load_dotenv
 from structlog import get_logger
@@ -241,23 +234,18 @@ class PromptManager:
     def __init__(self, model: LLM) -> None:
         self.model = model
 
-    def calculate_input_token(self, context: PromptContext, builder: PromptBuilder) -> int:
+    def calculate_input_token(self, context: PromptContext) -> int:
+        builder = self.select_builder(context)
         return context.get_input_token_count(self.model) + builder.get_template_token(self.model)
 
     def calculate_output_token(self, context: PromptContext) -> int:
         return context.get_output_token_count(self.model)
 
-    def is_able_to_translate(self, context: PromptContext, builder=None) -> bool:
-        if not builder:
-            builder = self.select_builder(context)
-        return self.is_able_to_send_prompt(context, builder) and self.is_able_to_get_output(
-            context
-        )
+    def is_able_to_translate(self, context: PromptContext) -> bool:
+        return self.is_able_to_send_prompt(context) and self.is_able_to_get_output(context)
 
-    def is_able_to_send_prompt(self, context: PromptContext, builder=None) -> bool:
-        if not builder:
-            builder = self.select_builder(context)
-        return self.model.is_input_token_affording(self.calculate_input_token(context, builder))
+    def is_able_to_send_prompt(self, context: PromptContext) -> bool:
+        return self.model.is_input_token_affording(self.calculate_input_token(context))
 
     def is_able_to_get_output(self, context: PromptContext) -> bool:
         return self.model.is_output_token_affording(

@@ -93,6 +93,6 @@ class GPT(LLM):
     def call_llm(self, text: str) -> str:
         return f"{text} inputed, but not implemented"
 
-    def calc_tokens(self, text: str) -> int:
+    def calc_tokens(self) -> int:
         # TODO: Implement GPT's count_llm_tokens
         return 0
