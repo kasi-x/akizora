@@ -31,6 +31,9 @@ python-dotenv = "^1.0.1"
 spacy = "^3.7.4"
 # it_core_news_sm = {url = "https://github.com/explosion/spacy-models/releases/download/it_core_news_sm-3.7.0/it_core_news_sm-3.7.0.tar.gz"}
 en-core-web-sm = {url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.0/en_core_web_sm-3.7.0.tar.gz"}
+ruff = "^0.3.2"
+tomli = "^2.0.1"
+codespell = "^2.2.6"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.4.0"
@@ -139,15 +142,15 @@ basic = ["**"]
 [tool.ruff]
 target-version = "py312"
 line-length = 99
-select = ["ALL"]
+lint.select = ["ALL"]
 fix = true
 unsafe-fixes = true
-logger-objects = ["logging_setup.logger"]
+lint.logger-objects = ["logging_setup.logger"]
 respect-gitignore = true
 src = ["src", "test"]
 indent-width = 4
-ignore-init-module-imports = true
-extend-ignore = [
+lint.ignore-init-module-imports = true
+lint.extend-ignore = [
     "PLR6301", # Checks for the presence of unused self parameter in methods definitions.  WHYNOT: false-positive
     "T20",     # flake8-print  WHYNOT: for fast debug.
     "TRY003",  # Avoid specifying long messages outside the exception class.  WHYNOT: for fast debug.
@@ -159,11 +162,11 @@ extend-ignore = [
     # "ANN10",   # Missing type annotation for self.  WHYNOT: unproductive type puzzle.(suppressed by ignore-fully-untyped = true)
     # "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed in {name}.  WHYNOT: false-positive. (suppressed by ignore-fully-untyped = true)
 ]
-unfixable = [
+lint.unfixable = [
     "RET504", # unnecessary-assign
     "F401",   # remove unused-import (ignore-init-module-imports = true)
 ]
-task-tags = [
+lint.task-tags = [
     # General Purpose Tags
     "TODO",
     "BUG",
@@ -177,6 +180,7 @@ task-tags = [
     "WARN",
     "PLAN",
     "PROCESS",
+    "TYPE",
 
     # More Hack
     "META",
@@ -193,6 +197,7 @@ task-tags = [
     "EXAMPLE",
     "FOLLOW",
     "POINTLESS",
+    "DESIGN", # New
 
     # Team Communication
     "WIP",
@@ -251,7 +256,7 @@ task-tags = [
     "PHASE-OUT",
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402", "INP001"]
 "tests/*" = [
     "ARG",     # flake8-unused-arguments
@@ -270,17 +275,17 @@ skip-magic-trailing-comma = true
 line-ending = "auto"
 docstring-code-format = true
 
-[tool.ruff.mccabe]
+[tool.ruff.lint.mccabe]
 max-complexity = 8
 
 [tool.ruff.lint.pydocstyle]
 convention = "google" # "google" | "numpy" | "pep257"
 ignore-decorators = ["typing.overload"]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 force-single-line = true
 
-[tool.ruff.flake8-tidy-imports]
+[tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "parents"
 
 [tool.ruff.lint.pycodestyle]
@@ -311,9 +316,6 @@ suppress-none-returning = false
 [tool.ruff.lint.flake8-errmsg]
 max-string-length = 20
 
-[tool.ruff.lint.mccabe]
-max-complexity = 5  # default is 10
-
 [tool.interrogate]
 ignore-init-method = true
 ignore-init-module = false
@@ -335,8 +337,9 @@ color = true
 
 [tool.codespell]
 skip = '*.po,*.ts,*.lock,thirdParty/*,/trial'
-count = ''
 quiet-level = 3
+ignore-words-list = "ans"
+
 
 [tool.creosote]
 venvs=[".venv"]
@@ -356,6 +359,10 @@ exclude-deps =[
 test = { cmd = "python -m pytest", help = "runs all tests" }
 lint_ruff = "ruff src"
 lint_mypy = "mypy src"
+
+[tool.typos]
+default.locale = "en_US"
+files.extend-exclude = ["*.po", "*.ts", "*.lock", "thirdParty/*", "/trial"]
 
 # [tool.bumpversion]
 # current_version = "0.0.1"

@@ -2,13 +2,17 @@ from abc import ABC
 from abc import abstractmethod
 from enum import Enum
 from time import sleep
+from typing import Literal
 
 import google.generativeai as genai
 
-type TOKEN_COSTS_TABLE = dict[Language, int]
+type TOKEN_COSTS_TABLE = dict[LanguageEnum, int]
+
+type Language = Literal["Japanese", "English"]
+type LLM_TYPE_NAME = str
 
 
-class Language(Enum):
+class LanguageEnum(Enum):
     # ISO 639-3
     jpn = "Japanese"
     eng = "English"  # US English vs UK English
@@ -17,19 +21,14 @@ class Language(Enum):
 
 GEMINI_TOKEN_COST_TABLE: TOKEN_COSTS_TABLE = {
     # the amount is all of translate costs by english.
-    Language.jpn: 5,
-    Language.eng: 1,
+    LanguageEnum.jpn: 5,
+    LanguageEnum.eng: 1,
 }
-
-
-class LLM_TYPE(Enum):
-    GEMINI_PRO = "gemini-pro"
-    GPT3 = "gpt3"
 
 
 class LLM(ABC):
     def __init__(self, name, input_token_limit, output_token_limit, token_cost_table):
-        self.name: str = name  # LLM_TYPE.value
+        self.name: LLM_TYPE_NAME = name
         self.input_token_limit: int = input_token_limit
         self.output_token_limit: int = output_token_limit
         self.token_cost_table: TOKEN_COSTS_TABLE = token_cost_table
@@ -58,7 +57,7 @@ class LLM(ABC):
 class GEMINI_PRO(LLM):
     def __init__(self):
         super().__init__(
-            name=LLM_TYPE.GEMINI_PRO.value,
+            name="gemini-pro",
             input_token_limit=30720,
             output_token_limit=2048,
             token_cost_table=GEMINI_TOKEN_COST_TABLE,

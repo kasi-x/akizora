@@ -3,12 +3,6 @@ import re
 
 from bs4 import BeautifulSoup as bs
 
-# from src.book_domain import Book
-# from src.book_domain import Chapter
-# from src.book_domain import Line
-# from src.book_domain import Section
-#
-
 
 class ProtoTextComponent:
     def __init__(self, contents):
@@ -341,31 +335,41 @@ class HTMLSectionProcessor:
 chapter_level_tag_list = ["PROLOGUE", "CHAPTER", "EPILOGUE", "THE_END", "TRANSCRIBER_NOTES"]
 
 
+def remove_single_newlines(text, newline="\n"):
+    """二個以上、連続した改行コードは無視して、単個の改行コードを削除する.
+
+    Args:
+      text: 処理対象の文字列
+      newline: 改行コードの種類
+
+    Returns:
+      処理後の文字列
+    """
+    text = text.replace(newline * 3, "<TRIPLE_LINE>")
+    text = text.replace(newline * 2, "<DOUBLE_LINE>")
+    text = text.replace(newline, " ")
+    text = text.replace("<TRIPLE_LINE>", "\n\n\n")
+    text = text.replace("<DOUBLE_LINE>", "\n\n")
+
+    text = text.rstrip()
+
+    return text
+
+
 def main():
     text = open("sample.txt").read()
+    text = remove_single_newlines(text)
 
     start_tag_added_text = mark_sections(text)
 
-    start_tag_and_placeholder_text, text_placeholders = replace_text_with_placeholder(
+    # MEMO: Not smart, more fix way to replace text with placeholder.
+    start_tag_and_placeholder_text, text_placeholder_dict = replace_text_with_placeholder(
         start_tag_added_text
     )
 
     prioritized_tag_text = replace_tags_with_rules(start_tag_and_placeholder_text)
     tag_complited_text = parse_and_correct_html(prioritized_tag_text)
-    result = restore_text_from_placeholder(tag_complited_text, text_placeholders)
-
-    pprint.pprint(result)
-    text = open("sample.txt").read()
-
-    start_tag_added_text = mark_sections(text)
-
-    start_tag_and_placeholder_text, text_placeholders = replace_text_with_placeholder(
-        start_tag_added_text
-    )
-
-    prioritized_tag_text = replace_tags_with_rules(start_tag_and_placeholder_text)
-    tag_complited_text = parse_and_correct_html(prioritized_tag_text)
-    result = restore_text_from_placeholder(tag_complited_text, text_placeholders)
+    result = restore_text_from_placeholder(tag_complited_text, text_placeholder_dict)
 
     processor = HTMLSectionProcessor(result, chapter_level_tag_list)
     processed_sections = processor.process()
@@ -377,6 +381,8 @@ def main():
             lines.append(ProtoLine(one_line_text))
         chapters.append(ProtoChapter(title=section.title, contents=lines))
     print(chapters)
+    print(chapters[0].contents[0].text)
+    return chapters
 
 
 if __name__ == "__main__":

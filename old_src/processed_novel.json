@@ -1,0 +1,30 @@
+[
+    {
+        "sentence": "これはテストの文章です",
+        "tokens": 5,
+        "chapter_number": 1,
+        "section_number": 1,
+        "sentence_index": 1
+    },
+    {
+        "sentence": "日本語の文章を処理しています",
+        "tokens": 6,
+        "chapter_number": 1,
+        "section_number": 1,
+        "sentence_index": 2
+    },
+    {
+        "sentence": "それぞれの文について、トークン数を計算します",
+        "tokens": 9,
+        "chapter_number": 1,
+        "section_number": 1,
+        "sentence_index": 3
+    },
+    {
+        "sentence": "これは次の章です",
+        "tokens": 4,
+        "chapter_number": 2,
+        "section_number": 1,
+        "sentence_index": 1
+    }
+]

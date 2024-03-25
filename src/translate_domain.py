@@ -3,6 +3,7 @@ from abc import ABC
 from abc import abstractmethod
 from dataclasses import dataclass
 from dataclasses import field
+from typing import Optional
 
 from dotenv import load_dotenv
 from structlog import get_logger
@@ -40,12 +41,12 @@ class ContextParseError(Exception):
 type SomeTextComponent = TextComponent | list[TextComponent]
 
 
-def is_noise(line: Line) -> bool:
-    return bool(line.text.strip().strip("\n"))
+def is_not_noise(line: Line) -> bool:
+    return line.text.strip() != ""
 
 
 def remove_empty_lines(lines: Lines) -> Lines:
-    return [line for line in lines if not is_noise(line)]
+    return [line for line in lines if is_not_noise(line)]
 
 
 @dataclass
@@ -55,12 +56,7 @@ class PromptContext:
     to_language: Language
     contextual_lines: Lines | None = field(default=None)
 
-    def __post_init__(self):
-        # MEMO: Remove empty lines is need for preventing bug. If the input line has empty line, the return line amount doen't much the input line count.
-        self.lines = remove_empty_lines(self.lines)
-
     def get_input_token_count(self, model: LLM) -> int:
-        # Not translate script token. Because it is not included template token.
         if self.contextual_lines:
             sum(
                 [
@@ -142,23 +138,10 @@ class TranslateResult:
 def component_to_lines(component: SomeTextComponent) -> Lines:
     if isinstance(component, list):
         result = []
-        result.extend([component_to_lines(c) for c in component])
-        return result
+        for a_component in component:
+            result.extend(a_component.lines)
+            return result
     return component.lines
-
-
-def create_context(
-    component: SomeTextComponent,
-    from_language: Language,
-    to_language: Language,
-    contextual_lines: Lines | None = None,
-) -> PromptContext:
-    return PromptContext(
-        lines=remove_empty_lines(component_to_lines(component)),
-        from_language=from_language,
-        to_language=to_language,
-        contextual_lines=contextual_lines,
-    )
 
 
 @dataclass
@@ -301,58 +284,79 @@ class BookTranslaor:
         self.book.set_token_count(self.from_language, self.model, force_update)
 
     def create_context(self, component: SomeTextComponent, contextual_lines=None) -> PromptContext:
-        return create_context(component, self.from_language, self.to_language, contextual_lines)
+        lines = component_to_lines(component)
+        return PromptContext(lines, self.from_language, self.to_language, contextual_lines)
 
     def get_all_prompt_contexts(self) -> list[PromptContext]:
         return self.create_segment_prompt_context_from_any(self.book)
 
-    def reduce_output(self, component: SomeTextComponent) -> list[PromptContext]:
-        if isinstance(component, Line):
+    def reduce_output_from_components(
+        self, components: list[TextComponent]
+    ) -> list[PromptContext]:
+        if len(components) == 1:
+            return self.create_segment_prompt_context_from_any(components[0])
+        index = 0
+        result = []
+        while len(components[:-index]) > 1:
+            current_context = self.create_context(components[:-index], None)
+            if self.prompt_manager.is_able_to_get_output(current_context):
+                result.extend(self.create_segment_prompt_context_from_any(components[:-index]))
+                result.extend(self.create_segment_prompt_context_from_any(components[-index:]))
+                return result
+            else:
+                index += 1
+        result.extend(self.create_segment_prompt_context_from_any(components[0].contents))
+        result.extend(self.create_segment_prompt_context_from_any(components[1:]))
+        return result
+
+    def reduce_output_from_a_componnent(self, a_component: TextComponent) -> list[PromptContext]:
+        if isinstance(a_component, Line):
             logger.error(
                 "failed to create prompt",
                 at="create_segment_prompt_from_any",
                 error="The line is too big to translate.",
-                component=component,
+                line=a_component.text,
             )
-            msg = f"The line is too big to translate.{component}"
+            msg = f"The line is too big to translate.{a_component}"
             raise PromptSizeError(msg)
-
-        if isinstance(component, list):
-            if len(component) == 1:
-                return [self.create_context(component[0])]
-            index = 1
-            result = []
-            while True:
-                if len(component[:-index]) > 1:
-                    current_context = self.create_context(component[:-index])
-                    if self.prompt_manager.is_able_to_get_output(current_context):
-                        result.extend(
-                            self.create_segment_prompt_context_from_any(component[:-index])
-                        )
-                        result.extend(
-                            self.create_segment_prompt_context_from_any(component[-index:])
-                        )
-                        return result
-                    else:
-                        index += 1
-                else:
-                    result.extend(self.reduce_output(component[0].contents))
-                    result.extend(self.create_segment_prompt_context_from_any(component[1:]))
-                    return result
         else:
-            return self.reduce_output(component.contents)
+            return self.reduce_output(a_component.contents)
+
+    def reduce_output(self, component: SomeTextComponent) -> list[PromptContext]:
+        if isinstance(component, list):
+            return self.reduce_output_from_components(component)
+        else:
+            return self.reduce_output_from_a_componnent(component)
 
     def create_segment_prompt_context_from_any(
         self, component: SomeTextComponent
     ) -> list[PromptContext]:
-        current_context = self.create_context(component)
-        if not self.prompt_manager.is_able_to_get_output(current_context):
-            return self.reduce_output(component)
+        try:
+            result: list[PromptContext] = []
+            current_context = self.create_context(component)
+            if not self.prompt_manager.is_able_to_get_output(current_context):
+                print("not able to get output")
+                result.extend(self.reduce_output(component))
+            print("able to get output")
 
-        if not self.prompt_manager.is_able_to_send_prompt(current_context):
-            return self.reduce_output(component)
-        context_lines = self.calculate_context_lines(component)
-        return [self.create_context(component, context_lines)]
+            if not self.prompt_manager.is_able_to_send_prompt(current_context):
+                print("not able to send prompt")
+                result.extend(self.reduce_output(component))
+            print("able to send prompt")
+            context_lines = self.append_some_context_as_long_as_affordable(component)
+            # print("context_lines", context_lines)
+            result.append(self.create_context(component, context_lines))
+            return result
+
+        except Exception as e:
+            logger.exception(
+                "failed to create prompt",
+                at="create_segment_prompt_from_any",
+                error=e,
+                component=component,
+            )
+            msg = f"failed to create prompt {e}"
+            raise ValueError(msg)
 
     def find_context_start_index(
         self,
@@ -362,19 +366,19 @@ class BookTranslaor:
     ) -> int:  # type: ignore
         # TODO: Not clever code here.
 
-        move_count = 0
+        move_count = 1
         book_lines = self.book.lines
         while True:
             start_index_trial = target_line_start_index - move_count
             if start_index_trial < 0:
                 return 0
             current_context = self.create_context(
-                component, book_lines[start_index_trial:target_line_end_index]
+                component, book_lines[start_index_trial : target_line_end_index + 1]
             )
             if self.prompt_manager.is_able_to_send_prompt(current_context):
                 move_count += 1
             else:
-                return start_index_trial
+                return start_index_trial + 1
 
     def find_context_end_index(
         self,
@@ -382,7 +386,7 @@ class BookTranslaor:
         target_line_start_index: int,
         target_line_end_index: int,
     ) -> int:  # type: ignore
-        move_count = 0
+        move_count = 1
         book_lines = self.book.lines
         while True:
             end_index_trial = target_line_end_index + move_count
@@ -390,14 +394,16 @@ class BookTranslaor:
                 return len(book_lines) - 1
             # TODO: Not clever code here.
             current_context = self.create_context(
-                component, book_lines[target_line_start_index:end_index_trial]
+                component, book_lines[target_line_start_index : end_index_trial + 1]
             )
             if self.prompt_manager.is_able_to_send_prompt(current_context):
                 move_count += 1
             else:
-                return end_index_trial
+                return end_index_trial - 1
 
-    def calculate_context_lines(self, component: SomeTextComponent) -> Lines | None:
+    def append_some_context_as_long_as_affordable(
+        self, component: SomeTextComponent
+    ) -> Lines | None:
         if isinstance(component, list):
             target_line_start_index = component[0].lines[0].id
             target_line_end_index = component[-1].lines[-1].id
@@ -413,4 +419,4 @@ class BookTranslaor:
         if start_index == target_line_start_index and end_index == target_line_end_index:
             return []
         else:
-            return remove_empty_lines(book_lines[start_index:end_index])
+            return book_lines[start_index:end_index]

@@ -1,0 +1,17 @@
+[
+    {
+        "sentence": "これはテストの文章です",
+        "tokens": 5,
+        "sentence_number": 1
+    },
+    {
+        "sentence": "日本語の文章を処理しています",
+        "tokens": 6,
+        "sentence_number": 2
+    },
+    {
+        "sentence": "それぞれの文について、トークン数を計算します",
+        "tokens": 9,
+        "sentence_number": 3
+    }
+]

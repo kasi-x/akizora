@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ novel.title }} - {{ selected_chapter.title }}</title>
+    <style>
+        body { font-family: 'Helvetica', 'Arial', sans-serif; line-height: 1.6; }
+        .chapter-content { max-width: 800px; margin: 20px auto; }
+        nav ul { list-style-type: none; padding: 0; }
+        nav ul li { display: inline; margin-right: 10px; }
+        .chapter-title { margin-bottom: 5px; }
+        .chapter-text { text-indent: 1em; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>{{ novel.title }} by {{ novel.author }}</h1>
+    </header>
+    <nav>
+        <ul>
+            {% for chapter in novel.chapters %}
+                <li><a href="/novel/{{ novel.id }}/chapter/{{ chapter.id }}">{{ chapter.title }}</a></li>
+            {% endfor %}
+        </ul>
+    </nav>
+    <main class="chapter-content">
+        <h2 class="chapter-title">{{ selected_chapter.title }}</h2>
+        <div class="chapter-text">
+            {{ selected_chapter.text | safe }}
+        </div>
+    </main>
+    <footer>
+        <p>&copy; {{ current_year }} サイト名</p>
+    </footer>
+</body>
+</html>
