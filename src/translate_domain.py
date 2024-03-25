@@ -63,6 +63,7 @@ class PromptContext:
     contextual_lines: Lines | None = field(default=None)
 
     def __post_init__(self):
+        # MEMO: Remove empty lines is need for preventing bug. If the input line has empty line, the return line amount doen't much the input line count.
         self.lines = remove_empty_lines(self.lines)
 
     def get_input_token_count(self, model: LLM) -> int:
@@ -127,6 +128,7 @@ class TranslateResult:
                     context_lines=self.context.contextual_lines,
                     text=self.text,
                     prompt=self.context,
+                    match=match,
                     matches=matches,
                 )
                 msg = "The number of translated text and the number of target text is not same."
@@ -146,19 +148,10 @@ class TranslateResult:
 
 def component_to_lines(component: SomeTextComponent) -> Lines:
     if isinstance(component, list):
-        return [line for component in component for line in component.lines]
-    elif isinstance(component, TextComponent):
-        return component.lines
-    else:
-        logger.error(
-            "line value isn't set.",
-            kind="ValueTypeError",
-            at="PromptContext",
-            when="get_line_value",
-            value_type=type(component),
-            value=component,
-        )
-        return []
+        result = []
+        result.extend([component_to_lines(c) for c in component])
+        return result
+    return component.lines
 
 
 def create_context(
@@ -191,7 +184,7 @@ class PromptBuilder(ABC):
 
     def get_template_token(self, model: LLM) -> int:
         if not self.template_token:
-            self.template_token = model.count_tokens(self.template)
+            self.template_token = model.calc_tokens(self.template)
         return self.template_token
 
 
@@ -293,12 +286,12 @@ class Translater:
     def translate(self, text) -> str:
         return self.model.call_llm(text)
 
-    def translate_with_prompt(self, context: PromptContext) -> TranslateResult:
+    def translate_prompt(self, context: PromptContext) -> TranslateResult:
         prompt = self.build_translate_prompt(context)
         return TranslateResult(text=self.translate(prompt.script), context=context)
 
-    def result_parser(self, translate_result) -> ParsedTranslateResults:
-        return try_parsing_translated_result(translate_result)
+    def parse_translate_result(self, translate_result) -> ParsedTranslateResults:
+        return translate_result.try_parsing_translated_result()
 
 
 class BookTranslaor:
