@@ -1,6 +1,7 @@
 from abc import ABC
 from abc import abstractmethod
 from enum import Enum
+from time import sleep
 
 import google.generativeai as genai
 
@@ -28,7 +29,7 @@ class LLM_TYPE(Enum):
 
 class LLM(ABC):
     def __init__(self, name, input_token_limit, output_token_limit, token_cost_table):
-        self.name: LLM_TYPE = name
+        self.name: str = name  # LLM_TYPE.value
         self.input_token_limit: int = input_token_limit
         self.output_token_limit: int = output_token_limit
         self.token_cost_table: TOKEN_COSTS_TABLE = token_cost_table
@@ -57,7 +58,7 @@ class LLM(ABC):
 class GEMINI_PRO(LLM):
     def __init__(self):
         super().__init__(
-            name=LLM_TYPE.GEMINI_PRO,
+            name=LLM_TYPE.GEMINI_PRO.value,
             input_token_limit=30720,
             output_token_limit=2048,
             token_cost_table=GEMINI_TOKEN_COST_TABLE,
@@ -73,13 +74,10 @@ class GEMINI_PRO(LLM):
 
     def calc_tokens(self, text: str) -> int:
         if not text:
-            print("text is empty")
+            print(f"failed with : {text}")
             return 0
-        result = self.model.count_tokens(text)
-        # sleep(0.1)
-        if isinstance(result, int):
-            return result
-        return result.total_tokens
+
+        return self.model.count_tokens(text).total_tokens
 
 
 def call_gemini():

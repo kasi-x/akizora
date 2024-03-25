@@ -27,6 +27,6 @@ def proto_to_domain(proto: ProtoTextComponent) -> TextComponent:
             contents=[proto_to_domain(content) for content in proto.contents],  # type: ignore
         )
     if isinstance(proto, ProtoLine):
-        return Line(contents=[proto.text])
+        return Line(contents=[proto.text], _text=proto.text)
     msg = f"Unknown type: {type(proto)}"
     raise ValueError(msg)

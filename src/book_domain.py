@@ -21,15 +21,17 @@ type NATIVE_CONTENT = str
 
 
 def remove_noise_space(text: str) -> str:
-    return text.strip()
+    return text
+    # return text.strip()
     # NOTE: In some case the latter can be better.
     # return re.sub(r"(?<!\n)\n(?!\n)", " ", text)
     # NOTE: I remove wastefull whitespace.
     # But in some case, like Askey Art, could use whitespace as art. But Novel's text maight not use white space as an art.
 
 
-type LANGUAGE_MAP_RESULT = dict[Language, dict[LLM_TYPE, TranslatedLine]]
-type LANGUAGE_MAP_TOKEN = dict[Language, dict[LLM_TYPE, int]]
+type LLM_TYPE_NAME = str
+type LANGUAGE_MAP_RESULT = dict[Language, dict[LLM_TYPE_NAME, TranslatedLine]]
+type LANGUAGE_MAP_TOKEN = dict[Language, dict[LLM_TYPE_NAME, int]]
 
 
 @dataclass
@@ -64,7 +66,7 @@ class TextComponent:
     def title(self, title: str) -> None:
         self._title = title
 
-    def get_token_count(self, language: Language, llm_name: LLM_TYPE) -> int:
+    def get_token_count(self, language: Language, llm_name: LLM_TYPE_NAME) -> int:
         return sum(content.get_token_count(language, llm_name) for content in self.contents)
 
     def set_token_count(self, language: Language, model: LLM, force_update: bool = False) -> None:
@@ -132,25 +134,26 @@ class TextComponent:
 @dataclass
 class Line(TextComponent):
     _text: NATIVE_CONTENT = ""
+    contents: list[NATIVE_CONTENT] = field(default_factory=list)
     _title: str = field(default="")
     kind = "line"
     base_language: Language | None = None
     id: int = field(default=-1, init=False)
     _translated_map: LANGUAGE_MAP_RESULT = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(str))
+        default_factory=lambda: defaultdict(lambda: defaultdict(str)), init=True
     )
     _token_count_map: LANGUAGE_MAP_TOKEN = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(int))
+        default_factory=lambda: defaultdict(lambda: defaultdict(int)), init=True
     )
 
     # DESIGN: this function is not close of book_domain. It is adapter between llm and book.
     # TODO: This function depends on llm_domain. So it should move outside..
     # NOTE: To make translated_line or token_counted line may be beetr but it increase complexity.
-    def get_token_count(self, language: Language, llm_name: LLM_TYPE) -> int:
+    def get_token_count(self, language: Language, llm_name: LLM_TYPE_NAME) -> int:
         return self._token_count_map[language][llm_name]
 
     def set_token_count(self, language: Language, model: LLM, force_update=False) -> None:
-        if (not force_update) and self.get_token_count(language, model.name):
+        if (not force_update) and self.get_token_count(language, model.name) > 0:
             print("pass")
             logger.info(
                 "token count is already set",
@@ -159,10 +162,10 @@ class Line(TextComponent):
                 model=model.name,
                 line=self.text,
             )
-        self._token_count_map[language][model.name] = model.calc_tokens(self.text)
+        self._token_count_map[language][model.name] = model.calc_tokens(self.content)
 
     def get_selected_language_text(
-        self, language: Language, llm_name: LLM_TYPE
+        self, language: Language, llm_name: LLM_TYPE_NAME
     ) -> str | TranslatedLine | None:
         try:
             return self._translated_map[language][llm_name]
@@ -178,7 +181,7 @@ class Line(TextComponent):
             return None
 
     def set_selected_language_text(
-        self, language: Language, llm_name: LLM_TYPE, result: TranslatedLine
+        self, language: Language, llm_name: LLM_TYPE_NAME, result: TranslatedLine
     ) -> None:
         self._translated_map[language][llm_name] = result
 
