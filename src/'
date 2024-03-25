@@ -2,17 +2,23 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from dataclasses import field
+from enum import Enum
+from typing import TypeAlias
 
 from dotenv import load_dotenv
 from structlog import get_logger
 
-from src.llm_domain import LLM
-from src.llm_domain import LLM_TYPE
-from src.llm_domain import Language
-from src.logger_config import configure_logger
+from logger_config import configure_logger
+from src.translate_domain import LLM
+from src.translate_domain import LLM_TYPE
+
+# from src.translate_domain import ParsedTranslateResults
+# from src.translate_domain import Prompt
+# from src.translate_domain import PromptContext
+# from src.translate_domain import TranslateResult
 
 configure_logger()
-logger = get_logger().bind(module="book_domain")
+logger = get_logger().bind(module="data_structure")
 
 load_dotenv("GOOGLE_API_KEY")
 
@@ -28,19 +34,25 @@ def remove_noise_space(text: str) -> str:
     # But in some case, like Askey Art, could use whitespace as art. But Novel's text maight not use white space as an art.
 
 
+class Language(Enum):
+    # ISO 639-3
+    jpn = "Japanese"
+    eng = "English"  # US English vs UK English
+    undifined = "undifined"
+
+
 type LANGUAGE_MAP_RESULT = dict[Language, dict[LLM_TYPE, TranslatedLine]]
 type LANGUAGE_MAP_TOKEN = dict[Language, dict[LLM_TYPE, int]]
 
 
 @dataclass
 class TextComponent:
-    contents: list["TextComponent"]
+    contents: list["TextComponent"] = field(default_factory=list)
     _title: str = field(default="")
     kind = "Base text componententent"
     base_language: Language | None = None
 
     def __post_init__(self):
-        # NOTE: It can be a book what written in multiple languages. But I didn't consider it.
         if self.kind != "line":
             for content in self.contents:
                 content.base_language = self.base_language
@@ -58,7 +70,7 @@ class TextComponent:
 
     @property
     def title(self):
-        return self._title if self._title else ""
+        return self._title if self._title else "NO_TITLE"
 
     @title.setter
     def title(self, title: str) -> None:
@@ -67,9 +79,9 @@ class TextComponent:
     def get_token_count(self, language: Language, llm_name: LLM_TYPE) -> int:
         return sum(content.get_token_count(language, llm_name) for content in self.contents)
 
-    def set_token_count(self, language: Language, model: LLM, force_update: bool = False) -> None:
+    def set_token_count(self, language: Language, model: LLM, value: int) -> None:
         for content in self.contents:
-            content.set_token_count(language, model, force_update)
+            content.set_token_count(language, model, value)
 
     @property
     def show_conets_with_title(self):
@@ -86,12 +98,12 @@ class TextComponent:
 
     @property
     def lines(self) -> list["Line"]:
-        return self._get_lines()
+        return self._get_lines(self.contents)
 
-    def _get_lines(self) -> list["Line"]:
+    def _get_lines(self, contents: list["TextComponent"]) -> list["Line"]:
         lines = []
-        for item in self.contents:
-            lines.extend(item._get_lines())
+        for item in contents:
+            lines.extend(self._get_lines(item.contents))
         return lines
 
     @property
@@ -135,31 +147,26 @@ class Line(TextComponent):
     _title: str = field(default="")
     kind = "line"
     base_language: Language | None = None
+    _translated_map: LANGUAGE_MAP_RESULT = field(default=defaultdict(), init=False)
     id: int = field(default=-1, init=False)
-    _translated_map: LANGUAGE_MAP_RESULT = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(str))
-    )
-    _token_count_map: LANGUAGE_MAP_TOKEN = field(
-        default_factory=lambda: defaultdict(lambda: defaultdict(int))
-    )
+    _token_count_map: LANGUAGE_MAP_TOKEN = field(default=defaultdict(), init=False)
 
-    # DESIGN: this function is not close of book_domain. It is adapter between llm and book.
-    # TODO: This function depends on llm_domain. So it should move outside..
-    # NOTE: To make translated_line or token_counted line may be beetr but it increase complexity.
-    def get_token_count(self, language: Language, llm_name: LLM_TYPE) -> int:
-        return self._token_count_map[language][llm_name]
+    def get_token_count(self, language: Language, llm_name: LLM_TYPE) -> int | None:
+        try:
+            return self._token_count_map[language][llm_name]
+        except KeyError:
+            return None
 
-    def set_token_count(self, language: Language, model: LLM, force_update=False) -> None:
-        if (not force_update) and self.get_token_count(language, model.name):
-            print("pass")
+    def set_token_count(self, language: Language, model: LLM, force=False) -> None:
+        if not force and self.get_token_count(language, model.name):
             logger.info(
                 "token count is already set",
                 at="set_token_count_map",
                 language=language,
                 model=model.name,
-                line=self.text,
+                line=self,
             )
-        self._token_count_map[language][model.name] = model.calc_tokens(self.text)
+        self._token_count_map[language][model.name] = model.count_tokens(self.text)
 
     def get_selected_language_text(
         self, language: Language, llm_name: LLM_TYPE
@@ -173,7 +180,7 @@ class Line(TextComponent):
                 error=e,
                 language=language,
                 llm_name=llm_name,
-                line=self.text,
+                line=self,
             )
             return None
 
@@ -198,12 +205,16 @@ class Line(TextComponent):
     def lines(self) -> list["Line"]:
         return [self]
 
+    @property
+    def contets(self) -> list["Line"]:
+        return [self]
+
     def _get_lines(self) -> list["Line"]:
         return [self]
 
     @property
-    def contets(self) -> list["Line"]:
-        return [self]
+    def title(self):
+        return ""
 
     @property
     def show_conets(self):
@@ -244,8 +255,6 @@ class Line(TextComponent):
     def paragraph_count(self):
         return 0
 
-
-type Lines = list[Line]
 
 # RATIONAL: Change data stracture for make higer-priority for Line.
 # The data is based on Book. Howerver the most important data is Line and we treat line as first object. So the additional information of chapter, sentence, paragraph should be inside Line for simple useage. (Maybe not need to rewrite all for this purpose.)
@@ -326,8 +335,5 @@ class Chapter(TextComponent):
 class Book(TextComponent):
     _title: str = field(default="NO_BOOK_TITLE")
     contents: list[Chapter | Paragraph | Line] = field(default_factory=list)
-    base_language: Language
+    base_language: str = "en"
     kind = "book"
-
-    def __post_init__(self):
-        self.add_id()
