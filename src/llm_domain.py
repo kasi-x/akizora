@@ -34,7 +34,7 @@ class LLM(ABC):
         self.token_cost_table: TOKEN_COSTS_TABLE = token_cost_table
 
     @abstractmethod
-    def call_llm(self, text: str, language="jp", context=None) -> str:
+    def call_llm(self, text: str, language=LanguageEnum.jpn, context=None) -> str:
         return "not implemented"
 
     @abstractmethod
@@ -42,7 +42,7 @@ class LLM(ABC):
         print("Not implemented yet")
         return -1
 
-    def calc_token_rate(self, from_language: Language, to_language: Language) -> int:
+    def calc_token_rate(self, from_language: LanguageEnum, to_language: LanguageEnum) -> int:
         return self.token_cost_table[to_language] // self.token_cost_table[from_language]
 
     def is_output_token_affording(self, input_token, from_language, to_language) -> bool:
