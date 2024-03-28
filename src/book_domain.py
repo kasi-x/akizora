@@ -45,7 +45,7 @@ class TextComponent:
         return iter(self.contents)
 
     @property
-    def content(self) -> "TextComponent":
+    def a_content(self) -> "TextComponent":
         return self.contents[0]
 
     @property
@@ -131,9 +131,9 @@ class Components(TextComponent):
     kind: str = field(default="")
     _title: str = field(default="")
 
-    # def __post_init__(self):
-    # self.kind = f"chunk_of_{self.contents[0].kind}"
-    # self._title = f"chunk_of_{self.contents[0]._title}"
+    def __post_init__(self):
+        self.kind = f"chunk_of_{self.contents[0].kind}"
+        self._title = f"chunk_of_{self.contents[0]._title}"
 
     def __getitem__(self, key: int) -> "TextComponent":
         return self.contents[key]

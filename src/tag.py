@@ -32,6 +32,11 @@ class ProtoLine:
         self.text = text
 
 
+class ProtoSentence:
+    def __init__(self, text):
+        self.text = text
+
+
 def mark_sections(text):
     lines = text.split("\n")
     modified_lines = []

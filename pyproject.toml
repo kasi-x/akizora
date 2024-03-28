@@ -34,6 +34,8 @@ en-core-web-sm = {url = "https://github.com/explosion/spacy-models/releases/down
 ruff = "^0.3.2"
 tomli = "^2.0.1"
 codespell = "^2.2.6"
+pysbd = "^0.3.4"
+bunkai = {git = "https://github.com/kasi-x/bunkai.git"}
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.4.0"
@@ -130,7 +132,7 @@ exclude = [
     "dist",
     ".venv",
 ]
-venvPath = "."
+# venvPath = "."
 venv = ".venv"
 stubPath = "src/stubs"
 typeCheckingMode = "basic"
