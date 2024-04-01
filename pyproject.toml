@@ -36,6 +36,7 @@ tomli = "^2.0.1"
 codespell = "^2.2.6"
 pysbd = "^0.3.4"
 bunkai = {git = "https://github.com/kasi-x/bunkai.git"}
+requests-html = "^0.10.0"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.4.0"

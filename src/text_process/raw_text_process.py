@@ -3,78 +3,12 @@ import re
 
 from bs4 import BeautifulSoup as bs
 
-
-class ProtoTextComponent:
-    def __init__(self, contents):
-        self.contents = contents
-
-
-class ProtoChapter:
-    def __init__(self, title, contents):
-        self.title = title
-        self.contents = contents
-
-
-class ProtoBook:
-    def __init__(self, title, contents):
-        self.title = title
-        self.ccontents = contents
-
-
-class ProtoSection:
-    def __init__(self, title, contents):
-        self.title = title
-        self.contents = contents
-
-
-class ProtoLine:
-    def __init__(self, text):
-        self.text = text
-
-
-class ProtoSentence:
-    def __init__(self, text):
-        self.text = text
-
-
-def mark_sections(text):
-    lines = text.split("\n")
-    modified_lines = []
-
-    is_body = False
-    for line in lines:
-        line = line.strip()
-        if re.match(r"(?i)^CHAPTER\s+\d+", line):
-            modified_lines.append(f"<CHAPTER><CHAPTER_TITLE> {line} </CHAPTER_TITLE>")
-            is_body = False
-        elif re.match(r"(?i)^PART\s+\d+", line):
-            modified_lines.append(f"<PART><PART_TITLE> {line} </PART_TITLE>")
-            is_body = False
-        elif re.match(r"(?i)^EPILOGUE", line):
-            modified_lines.append(f"<EPILOGUE> <EPILOGUE_TITLE> {line} </EPILOGUE_TITLE>")
-            is_body = False
-        elif re.match(r"^THE END$", line):
-            modified_lines.append(f"<THE_END> {line} </THE_END>")
-            is_body = False
-        elif re.match(r"(?i)^OPENING", line):
-            modified_lines.append(f"<OPENING><OPENING_TITLE> {line} </OPENING_TITLE>")
-            is_body = False
-        elif re.match(r"(?i)^PROLOGUE", line):
-            modified_lines.append(f"<PROLOGUE><PROLOGUE_TITLE> {line} </PROLOGUE_TITLE>")
-            is_body = False
-        elif re.match(r"(?i)^TRANSCRIBER NOTES", line):
-            modified_lines.append(
-                f"<TRANSCRIBER_NOTES><TRANSCRIBER_NOTES_TITLE> {line} </TRANSCRIBER_NOTES_TITLE>"
-            )
-            is_body = False
-        else:
-            if not is_body:
-                modified_lines.append("<BODY>")
-                is_body = True
-            modified_lines.append(line)
-
-    return "\n".join(modified_lines)
-
+from domain.book import Book
+from domain.tag import ProtoBook
+from domain.tag import ProtoChapter
+from domain.tag import ProtoLine
+from domain.tag import ProtoSection
+from domain.tag import ProtoTextComponent
 
 unsorted_tag_priorities = {
     "PART": 5,
@@ -361,15 +295,80 @@ def remove_single_newlines(text, newline="\n"):
     return text
 
 
+def make_component_tag(text):
+    lines = text.split("\n")
+    modified_lines = []
+
+    is_body = False
+    for line in lines:
+        line = line.strip()
+        if re.match(r"(?i)^CHAPTER\s+\d+", line):
+            modified_lines.append(f"<CHAPTER><CHAPTER_TITLE> {line} </CHAPTER_TITLE>")
+            is_body = False
+        elif re.match(r"(?i)^PART\s+\d+", line):
+            modified_lines.append(f"<PART><PART_TITLE> {line} </PART_TITLE>")
+            is_body = False
+        elif re.match(r"(?i)^EPILOGUE", line):
+            modified_lines.append(f"<EPILOGUE> <EPILOGUE_TITLE> {line} </EPILOGUE_TITLE>")
+            is_body = False
+        elif re.match(r"^THE END$", line):
+            modified_lines.append(f"<THE_END> {line} </THE_END>")
+            is_body = False
+        elif re.match(r"(?i)^OPENING", line):
+            modified_lines.append(f"<OPENING><OPENING_TITLE> {line} </OPENING_TITLE>")
+            is_body = False
+        elif re.match(r"(?i)^PROLOGUE", line):
+            modified_lines.append(f"<PROLOGUE><PROLOGUE_TITLE> {line} </PROLOGUE_TITLE>")
+            is_body = False
+        elif re.match(r"(?i)^TRANSCRIBER NOTES", line):
+            modified_lines.append(
+                f"<TRANSCRIBER_NOTES><TRANSCRIBER_NOTES_TITLE> {line} </TRANSCRIBER_NOTES_TITLE>"
+            )
+            is_body = False
+        else:
+            if not is_body:
+                modified_lines.append("<BODY>")
+                is_body = True
+            modified_lines.append(line)
+
+    return "\n".join(modified_lines)
+
+
+def make_sentenec(raw_line: ProtoLine):
+    return ProtoSentence(raw_line.text)
+
+
+def proto_to_domain(proto: ProtoTextComponent) -> TextComponent:
+    if isinstance(proto, ProtoBook):
+        return Book(
+            title=proto.title,
+            contents=[proto_to_domain(content) for content in proto.contents],  # type: ignore
+        )
+    if isinstance(proto, ProtoChapter):
+        return Chapter(
+            title=proto.title,
+            contents=[proto_to_domain(content) for content in proto.contents],  # type: ignore
+        )
+    if isinstance(proto, ProtoSection):
+        return Section(
+            title=proto.title,
+            contents=[proto_to_domain(content) for content in proto.contents],  # type: ignore
+        )
+    if isinstance(proto, ProtoLine):
+        return Line(text=proto.text)
+    msg = f"Unknown type: {type(proto)}"
+    raise ValueError(msg)
+
+
 def main():
     text = open("sample.txt").read()
     text = remove_single_newlines(text)
 
-    start_tag_added_text = mark_sections(text)
+    taged_text = make_component_tag(text)
 
     # MEMO: Not smart, more fix way to replace text with placeholder.
     start_tag_and_placeholder_text, text_placeholder_dict = replace_text_with_placeholder(
-        start_tag_added_text
+        taged_text
     )
 
     prioritized_tag_text = replace_tags_with_rules(start_tag_and_placeholder_text)
@@ -387,7 +386,11 @@ def main():
         chapters.append(ProtoChapter(title=section.title, contents=lines))
     print(chapters)
     print(chapters[0].contents[0].text)
-    return chapters
+    chaps = []
+    for chapter in chapters:
+        chaps.append(proto_to_domain(chapter))
+    book = Book(contents=chaps)
+    return book
 
 
 if __name__ == "__main__":
