@@ -5,11 +5,9 @@ from typing import TypedDict
 
 import requests
 import structlog
+from structlog.stdlib import BoundLogger
 
 from utils.logger_config import configure_logger
-
-configure_logger()
-logger = structlog.get_logger(__name__).bind(module="github_api")
 
 
 class FileInfo(TypedDict):
@@ -62,19 +60,20 @@ class RepositoryInfo(TypedDict):
 
 class GithubAPI:
     def __init__(self) -> None:
+        self.logger = structlog.get_logger(__name__).bind(module="github_api")
         access_token = os.environ["GITHUB_PERSONAL_ACCESS_TOKEN"]
         self.headers = {"Authorization": f"token {access_token}"}
 
     def _log_api_request(self, url: str, method="GET") -> None:
-        logger.info("API Request", url=url, method=method)
+        self.logger.info("API Request", url=url, method=method)
 
     def _log_api_response(self, url: str, status_code: int, response_text: str = "") -> None:
         if status_code >= 400:
-            logger.error(
+            self.logger.error(
                 "API Request Failed", url=url, status_code=status_code, response_text=response_text
             )
         else:
-            logger.debug("API Request Successful", url=url, status_code=status_code)
+            self.logger.debug("API Request Successful", url=url, status_code=status_code)
 
     def get_file_tree_info(self, file_tree_url: str) -> list[FileInfo]:
         self._log_api_request(file_tree_url)
@@ -89,7 +88,7 @@ class GithubAPI:
 
     def get_single_file_content_data(self, file_info: FileInfo) -> ContentData:
         if file_info["type"] != "blob":
-            logger.error("File type is not blob.", file_path=file_info["path"])
+            self.logger.error("File type is not blob.", file_path=file_info["path"])
             msg = "File type is not blob."
             raise Exception(msg)
 
@@ -121,23 +120,13 @@ class GithubAPI:
             raise Exception(msg)
 
     def get_all_user_repositories(self, username: str) -> list[RepositoryInfo]:
-        repositories = []
+        repositories: list[RepositoryInfo] = []
         url = f"https://api.github.com/users/{username}/repos"
 
         while url:
             response = requests.get(url, headers=self.headers)
             if response.status_code == 200:
-                repositories.extend(
-                    [
-                        RepositoryInfo(
-                            name=repo_data["name"],
-                            url=repo_data["html_url"],
-                            owner=repo_data["owner"]["login"],
-                            description=repo_data["description"],
-                        )
-                        for repo_data in response.json()
-                    ]
-                )
+                repositories.extend(list(response.json()))
 
                 link_header = response.headers.get("Link")
                 if link_header:
@@ -160,6 +149,9 @@ class GithubAPI:
 
 # test_case
 def main():
+    configure_logger()
+    logger = structlog.get_logger(__name__).bind(module="github_api_tutorial")
+
     title = "john-maynard-keynes_the-economic-consequences-of-the-peace"
     github_api = GithubAPI()
     text_file_tree_url = (
