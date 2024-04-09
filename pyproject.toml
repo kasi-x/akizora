@@ -5,38 +5,27 @@ description = ""
 authors = ["kasi-x"]
 license = "private"
 readme = "README.md"
-packages = [{ include = "src" }]
+# packages = [{include = "src"}]
+# packages = [{include = "*", from="src"}]
 
 [tool.poetry.dependencies]
-python = "3.12.*"
-pandera = { extras = [
-    "io",
-    "mypy",
-    "strategies",
-    "geopandas",
-], version = "^0.18.0" }
+python = "3.11.*"
 pydantic = "^2.5.3"
 pydantic-settings = "^2.1.0"
 returns = "^0.22.0"
 rich = "^13.7.0"
 structlog = "^23.3.0"
-# fasthx = "^0.2401.3"
-# fastapi = "^0.109.2"
-# uvicorn = "^0.27.0.post1"
 lxml = "^5.1.0"
 beautifulsoup4 = "^4.12.3"
-pelican = {extras = ["markdown"], version = "^4.9.1"}
+# pelican = {extras = ["markdown"], version = "^4.9.1"}
 google-generativeai = "^0.3.2"
 python-dotenv = "^1.0.1"
 spacy = "^3.7.4"
-# it_core_news_sm = {url = "https://github.com/explosion/spacy-models/releases/download/it_core_news_sm-3.7.0/it_core_news_sm-3.7.0.tar.gz"}
 en-core-web-sm = {url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.0/en_core_web_sm-3.7.0.tar.gz"}
 ruff = "^0.3.2"
 tomli = "^2.0.1"
-codespell = "^2.2.6"
 pysbd = "^0.3.4"
 bunkai = {git = "https://github.com/kasi-x/bunkai.git"}
-requests-html = "^0.10.0"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.4.0"
@@ -56,6 +45,7 @@ pytest-datadir = "^1.5.0"
 pytest-mock = "^3.12.0"
 pytest-picked = "^0.5.0"
 pytest-pretty = "^1.2.0"
+codespell = "^2.2.6"
 # bpython = "^0.24"
 # mypy = "^1.8.0"
 # ruff = "^0.1.9"
@@ -67,7 +57,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.mypy]
 python_version = "3.12"
 plugins = [
-    "returns.contrib.mypy.returns_plugin",
+    # "returns.contrib.mypy.returns_plugin",
     "numpy.typing.mypy_plugin",
     "pandera.mypy",
     "pydantic.mypy",
@@ -367,24 +357,3 @@ lint_mypy = "mypy src"
 default.locale = "en_US"
 files.extend-exclude = ["*.po", "*.ts", "*.lock", "thirdParty/*", "/trial"]
 
-# [tool.bumpversion]
-# current_version = "0.0.1"
-# commit = true
-# commit_args = "--no-verify"
-# tag = true
-# tag_name = "{new_version}"
-# allow_dirty = true
-# parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.(?P<dev>post)\\d+\\.dev\\d+)?"
-# serialize = [
-#     "{major}.{minor}.{patch}.{dev}{$PR_NUMBER}.dev{distance_to_latest_tag}",
-#     "{major}.{minor}.{patch}"
-# ]
-# message = "Version updated from {current_version} to {new_version}"
-#
-# [tool.bumpversion.parts.dev]
-# values = ["release", "post"]
-#
-# [[tool.bumpversion.files]]
-# filename = "CHANGELOG.md"
-# search = "{current_version}...HEAD"
-# replace = "{current_version}...{new_version}"
