@@ -3,6 +3,7 @@ import json
 import os
 import xml
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
@@ -12,59 +13,12 @@ from lxml import etree
 from lxml.etree import Element
 from lxml.etree import XMLParser
 
-# from logger_config import configure_logger
-#
-# configure_logger()
-# logger = structlog.get_logger(__name__)
 
-
-def get_file_info(url, headers=None):
-    """URLを引数にして、ファイルの情報をdictにして返す."""
-    response = requests.get(url, headers=headers)
-
-    if response.status_code == 200:
-        tree_info = response.json()
-        file_info_dict: dict[str, bytes] = {}
-        for file_info in tree_info["tree"]:
-            file_name = file_info["path"]
-            file_type = file_info["type"]
-
-            # ファイルの内容を取得
-            if file_type != "blob":
-                msg = f"Error: {file_type} is not supported."
-                raise Exception(msg)
-
-            url = (
-                "https://api.github.com/repos/standardebooks/john-maynard-keynes_the-economic-consequences-of-the-peace/git/blobs/"
-                + file_info["sha"]
-            )
-            response = requests.get(url)
-            if response.status_code == 200:
-                file_content = base64.b64decode(response.json()["content"])
-                file_info_dict[file_name] = file_content
-            else:
-                msg = f"Error: {response.status_code}, {response.text} {url}"
-                raise Exception(msg)
-        return file_info_dict
-    else:
-        msg = f"Error: {response.status_code}, {response.text} {url}"
-
-        raise Exception(msg)
-
-
-# 結果を出力
-# print(file_info_dict)
-
-
+@dataclass
 class TextComponent:
     def __init__(self, title, sections):
         self.title = title
         self.sections = sections
-
-
-class SectionComponent:
-    def __init__(self, component_type):
-        self.type = component_type
 
 
 class SectionType(Enum):
@@ -72,28 +26,18 @@ class SectionType(Enum):
     BLOCKQUOTE = "blockquote"
 
 
+@dataclass
 class HgroupInfo:
-    def __init__(self, ordinal, title):
-        self.ordinal = ordinal
-        self.title = title
+    ordinal: str
+    title: str
 
 
-class Section:
-    def __init__(self, section_id, epub_type, hgroup_info, paragraphs):
-        # self.sectiontype: SectionType = sectiontype
-        self.section_id = section_id
-        self.epub_type = epub_type
-        self.hgroup_info = hgroup_info
-        self.paragraphs = paragraphs
-
-
-class SubSection:
-    def __init__(self, sectiontype, section_id, epub_type, hgroup_info, paragraphs):
-        self.sectiontype: SectionType = sectiontype
-        self.section_id = section_id
-        self.epub_type = epub_type
-        self.hgroup_info = hgroup_info
-        self.paragraphs = paragraphs
+@dataclass
+class XhtmlSection:
+    section_id: str
+    epub_type: str
+    hgroup_info: HgroupInfo
+    paragraphs: list
 
 
 def get_page_title(data_root) -> str:
