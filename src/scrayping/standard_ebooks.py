@@ -1,10 +1,7 @@
 import base64
 import json
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
-from typing import TypedDict
 
 import structlog
 from structlog.stdlib import BoundLogger
@@ -22,6 +19,14 @@ def save_chunk(
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as fp:
         json.dump(data, fp)
+    if logger:
+        logger.info("Saved data.", path=path)
+
+
+def save_xhtml(data: str, path: Path, logger: BoundLogger) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as fp:
+        fp.write(data)
     if logger:
         logger.info("Saved data.", path=path)
 
@@ -53,16 +58,35 @@ def scrape_files(title: str, logger: BoundLogger = structlog.get_logger(__name__
         save_chunk(tree_info_chunk, data_info_path(title), logger)
     for file_info in tree_info_chunk:
         try:
-            target_path = Path(f"books/{title}/{file_info['path']}.json")
+            target_path = Path(f"books/{title}/{file_info['path']}")
+            # books/john-maynard-keynes_the-economic-consequences-of-the-peace/chapter-1.xhtml
             if target_path.exists():
                 continue
-            content_data = github_api.get_single_file_content_data(file_info)
+            content_data = github_api.get_single_file_content_data(file_info["url"])
             content_data["content"] = base64.b64decode(content_data["content"]).decode("utf-8")
             content_data["encoding"] = "utf-8"
 
-            save_chunk(content_data, target_path, logger)
+            save_xhtml(content_data["content"], target_path, logger)
         except Exception as e:
-            logger.exception("Failed to process file.", file_path=file_info["path"], error=str(e))
+            logger.exception(
+                "Failed to process file.",
+                at="scrape_files",
+                file_path=file_info["path"],
+                error=str(e),
+            )
+
+
+def get_raw_toc_file(title: str, logger: BoundLogger = structlog.get_logger(__name__)) -> None:
+    github_api = GithubAPI()
+    toc_file_url = (
+        f"https://api.github.com/repos/standardebooks/{title}/contents/src/epub/toc.xhtml"
+    )
+    toc_file_info = github_api.get_single_file_content_data(toc_file_url)
+    save_xhtml(
+        base64.b64decode(toc_file_info["content"]).decode("utf-8"),
+        Path(f"books/{title}/toc.xhtml"),
+        logger,
+    )
 
 
 def get_all_repositories(logger: BoundLogger = structlog.get_logger(__name__)) -> None:
@@ -78,8 +102,9 @@ def main():
 
     logger = structlog.get_logger(__name__)
 
+    get_raw_toc_file(title, logger)
     scrape_files(title, logger)
-    get_all_repositories(logger)
+    # get_all_repositories(logger)
 
 
 if __name__ == "__main__":

@@ -86,15 +86,10 @@ class GithubAPI:
             msg = "Failed to get tree info."
             raise Exception(msg)
 
-    def get_single_file_content_data(self, file_info: FileInfo) -> ContentData:
-        if file_info["type"] != "blob":
-            self.logger.error("File type is not blob.", file_path=file_info["path"])
-            msg = "File type is not blob."
-            raise Exception(msg)
-
-        self._log_api_request(file_info["url"])
-        response = requests.get(file_info["url"], headers=self.headers)
-        self._log_api_response(file_info["url"], response.status_code, response.text)
+    def get_single_file_content_data(self, file_api_url) -> ContentData:
+        self._log_api_request(file_api_url)
+        response = requests.get(file_api_url, headers=self.headers)
+        self._log_api_response(file_api_url, response.status_code, response.text)
         return response.json()
 
     def get_user_repositories(self, username: str) -> list[RepositoryInfo]:
@@ -160,7 +155,11 @@ def main():
     tree_info = github_api.get_file_tree_info(text_file_tree_url)
     for file_info in tree_info:
         try:
-            content_data = github_api.get_single_file_content_data(file_info)
+            if file_info["type"] != "blob":
+                self.logger.error("File type is not blob.", file_path=file_info["path"])
+                msg = "File type is not blob."
+                raise Exception(msg)
+            content_data = github_api.get_single_file_content_data(file_info["url"])
             content_data["content"] = base64.b64decode(content_data["content"]).decode("utf-8")
             content_data["encoding"] = "utf-8"
             print(f"--- {file_info['path']} ---")
@@ -170,6 +169,10 @@ def main():
 
     username = "standardebooks"
     repositories = github_api.get_user_repositories(username)
+
+    toc_url = f"https://api.github.com/repos/standardebooks/{title}/contents/src/epub/toc.xhtml?ref=master"
+    toc_data = github_api.get_single_file_content_data(toc_url)
+    print(toc_data["content"])
 
     for repo in repositories:
         print(f"Name: {repo['name']}")

@@ -1,4 +1,6 @@
+import json
 import xml.etree.ElementTree as ET
+from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
@@ -70,11 +72,24 @@ parser = XMLParser(
     encoding="UTF-8", resolve_entities=False, strip_cdata=False, recover=True, ns_clean=True
 )
 root = ET.fromstring(xml_data, parser)
+
+
 toc_element = root.xpath("//xhtml:nav[1]", namespaces=namespaces)[0]
 
+# 再帰的に解析し、章リストを取得
 chapters = extract_chapters(toc_element)
 
+# 結果の確認
 for chapter in chapters:
-    print(f"- {chapter.title}")
+    print(f"- {chapter.title}: {chapter.href}")
     for subchapter in chapter.subchapters:
         print(f"  - {subchapter.title}")
+
+
+chapters_json = json.dumps([asdict(chapter) for chapter in chapters], indent=4)
+
+path = Path(f"/home/user/dev/kasi-x/akizora/parsed_data/{title}/toc.json")
+path.parent.mkdir(parents=True, exist_ok=True)
+
+with open(path, "w") as f:
+    f.write(chapters_json)

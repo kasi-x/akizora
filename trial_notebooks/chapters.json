@@ -1,0 +1,292 @@
+[
+    {
+        "title": "Titlepage",
+        "href": "text/titlepage.xhtml",
+        "subchapters": []
+    },
+    {
+        "title": "Imprint",
+        "href": "text/imprint.xhtml",
+        "subchapters": []
+    },
+    {
+        "title": "Preface",
+        "href": "text/preface.xhtml",
+        "subchapters": []
+    },
+    {
+        "title": "The Economic Consequences of the Peace",
+        "href": "text/halftitlepage.xhtml",
+        "subchapters": [
+            {
+                "title": ": Introductory",
+                "href": "text/chapter-1.xhtml",
+                "subchapters": []
+            },
+            {
+                "title": ": Europe Before the War",
+                "href": "text/chapter-2.xhtml",
+                "subchapters": [
+                    {
+                        "title": ": Population",
+                        "href": "text/chapter-2.xhtml#chapter-2-1",
+                        "subchapters": []
+                    },
+                    {
+                        "title": ": Organization",
+                        "href": "text/chapter-2.xhtml#chapter-2-2",
+                        "subchapters": []
+                    },
+                    {
+                        "title": ": The Psychology of Society",
+                        "href": "text/chapter-2.xhtml#chapter-2-3",
+                        "subchapters": []
+                    },
+                    {
+                        "title": ": The Relation of the Old World to the New",
+                        "href": "text/chapter-2.xhtml#chapter-2-4",
+                        "subchapters": []
+                    }
+                ]
+            },
+            {
+                "title": ": Population",
+                "href": "text/chapter-2.xhtml#chapter-2-1",
+                "subchapters": []
+            },
+            {
+                "title": ": Organization",
+                "href": "text/chapter-2.xhtml#chapter-2-2",
+                "subchapters": []
+            },
+            {
+                "title": ": The Psychology of Society",
+                "href": "text/chapter-2.xhtml#chapter-2-3",
+                "subchapters": []
+            },
+            {
+                "title": ": The Relation of the Old World to the New",
+                "href": "text/chapter-2.xhtml#chapter-2-4",
+                "subchapters": []
+            },
+            {
+                "title": ": The Conference",
+                "href": "text/chapter-3.xhtml",
+                "subchapters": []
+            },
+            {
+                "title": ": The Treaty",
+                "href": "text/chapter-4.xhtml",
+                "subchapters": []
+            },
+            {
+                "title": ": Reparation",
+                "href": "text/chapter-5.xhtml",
+                "subchapters": [
+                    {
+                        "title": ": Undertakings Given Prior to the Peace Negotiations",
+                        "href": "text/chapter-5.xhtml#chapter-5-1",
+                        "subchapters": []
+                    },
+                    {
+                        "title": ": The Conference and the Terms of the Treaty",
+                        "href": "text/chapter-5.xhtml#chapter-5-2",
+                        "subchapters": []
+                    },
+                    {
+                        "title": ": Germany\u2019s Capacity to Pay",
+                        "href": "text/chapter-5.xhtml#chapter-5-3",
+                        "subchapters": []
+                    },
+                    {
+                        "title": ": The Reparation Commission",
+                        "href": "text/chapter-5.xhtml#chapter-5-4",
+                        "subchapters": []
+                    },
+                    {
+                        "title": ": The German Counterproposals",
+                        "href": "text/chapter-5.xhtml#chapter-5-5",
+                        "subchapters": []
+                    }
+                ]
+            },
+            {
+                "title": ": Undertakings Given Prior to the Peace Negotiations",
+                "href": "text/chapter-5.xhtml#chapter-5-1",
+                "subchapters": []
+            },
+            {
+                "title": ": The Conference and the Terms of the Treaty",
+                "href": "text/chapter-5.xhtml#chapter-5-2",
+                "subchapters": []
+            },
+            {
+                "title": ": Germany\u2019s Capacity to Pay",
+                "href": "text/chapter-5.xhtml#chapter-5-3",
+                "subchapters": []
+            },
+            {
+                "title": ": The Reparation Commission",
+                "href": "text/chapter-5.xhtml#chapter-5-4",
+                "subchapters": []
+            },
+            {
+                "title": ": The German Counterproposals",
+                "href": "text/chapter-5.xhtml#chapter-5-5",
+                "subchapters": []
+            },
+            {
+                "title": ": Europe After the Treaty",
+                "href": "text/chapter-6.xhtml",
+                "subchapters": []
+            },
+            {
+                "title": ": Remedies",
+                "href": "text/chapter-7.xhtml",
+                "subchapters": []
+            }
+        ]
+    },
+    {
+        "title": ": Introductory",
+        "href": "text/chapter-1.xhtml",
+        "subchapters": []
+    },
+    {
+        "title": ": Europe Before the War",
+        "href": "text/chapter-2.xhtml",
+        "subchapters": [
+            {
+                "title": ": Population",
+                "href": "text/chapter-2.xhtml#chapter-2-1",
+                "subchapters": []
+            },
+            {
+                "title": ": Organization",
+                "href": "text/chapter-2.xhtml#chapter-2-2",
+                "subchapters": []
+            },
+            {
+                "title": ": The Psychology of Society",
+                "href": "text/chapter-2.xhtml#chapter-2-3",
+                "subchapters": []
+            },
+            {
+                "title": ": The Relation of the Old World to the New",
+                "href": "text/chapter-2.xhtml#chapter-2-4",
+                "subchapters": []
+            }
+        ]
+    },
+    {
+        "title": ": Population",
+        "href": "text/chapter-2.xhtml#chapter-2-1",
+        "subchapters": []
+    },
+    {
+        "title": ": Organization",
+        "href": "text/chapter-2.xhtml#chapter-2-2",
+        "subchapters": []
+    },
+    {
+        "title": ": The Psychology of Society",
+        "href": "text/chapter-2.xhtml#chapter-2-3",
+        "subchapters": []
+    },
+    {
+        "title": ": The Relation of the Old World to the New",
+        "href": "text/chapter-2.xhtml#chapter-2-4",
+        "subchapters": []
+    },
+    {
+        "title": ": The Conference",
+        "href": "text/chapter-3.xhtml",
+        "subchapters": []
+    },
+    {
+        "title": ": The Treaty",
+        "href": "text/chapter-4.xhtml",
+        "subchapters": []
+    },
+    {
+        "title": ": Reparation",
+        "href": "text/chapter-5.xhtml",
+        "subchapters": [
+            {
+                "title": ": Undertakings Given Prior to the Peace Negotiations",
+                "href": "text/chapter-5.xhtml#chapter-5-1",
+                "subchapters": []
+            },
+            {
+                "title": ": The Conference and the Terms of the Treaty",
+                "href": "text/chapter-5.xhtml#chapter-5-2",
+                "subchapters": []
+            },
+            {
+                "title": ": Germany\u2019s Capacity to Pay",
+                "href": "text/chapter-5.xhtml#chapter-5-3",
+                "subchapters": []
+            },
+            {
+                "title": ": The Reparation Commission",
+                "href": "text/chapter-5.xhtml#chapter-5-4",
+                "subchapters": []
+            },
+            {
+                "title": ": The German Counterproposals",
+                "href": "text/chapter-5.xhtml#chapter-5-5",
+                "subchapters": []
+            }
+        ]
+    },
+    {
+        "title": ": Undertakings Given Prior to the Peace Negotiations",
+        "href": "text/chapter-5.xhtml#chapter-5-1",
+        "subchapters": []
+    },
+    {
+        "title": ": The Conference and the Terms of the Treaty",
+        "href": "text/chapter-5.xhtml#chapter-5-2",
+        "subchapters": []
+    },
+    {
+        "title": ": Germany\u2019s Capacity to Pay",
+        "href": "text/chapter-5.xhtml#chapter-5-3",
+        "subchapters": []
+    },
+    {
+        "title": ": The Reparation Commission",
+        "href": "text/chapter-5.xhtml#chapter-5-4",
+        "subchapters": []
+    },
+    {
+        "title": ": The German Counterproposals",
+        "href": "text/chapter-5.xhtml#chapter-5-5",
+        "subchapters": []
+    },
+    {
+        "title": ": Europe After the Treaty",
+        "href": "text/chapter-6.xhtml",
+        "subchapters": []
+    },
+    {
+        "title": ": Remedies",
+        "href": "text/chapter-7.xhtml",
+        "subchapters": []
+    },
+    {
+        "title": "Endnotes",
+        "href": "text/endnotes.xhtml",
+        "subchapters": []
+    },
+    {
+        "title": "Colophon",
+        "href": "text/colophon.xhtml",
+        "subchapters": []
+    },
+    {
+        "title": "Uncopyright",
+        "href": "text/uncopyright.xhtml",
+        "subchapters": []
+    }
+]
