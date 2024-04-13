@@ -12,78 +12,54 @@ from scrayping.github_api import FileInfo
 from scrayping.github_api import GithubApiManager
 from scrayping.github_api import GithubApiUrl
 from scrayping.github_api import RepositoryInfo
+from scrayping.github_api import build_github_file_api
+from scrayping.github_api import build_github_tree_api
+from utils.data_io import read_dict
+from utils.data_io import save_chunk
+from utils.data_io import save_xhtml
 from utils.logger_config import configure_logger
 
 BOOK_DIR = os.environ.get("BOOK_DIR", "/books")
 
 
-def save_chunk(
-    data: list[FileInfo] | ContentData | list[RepositoryInfo], path: Path, logger: BoundLogger
-) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as fp:
-        json.dump(data, fp)
-    if logger:
-        logger.info("Saved data.", path=path)
-
-
-def save_xhtml(data: str, path: Path, logger: BoundLogger) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as fp:
-        fp.write(data)
-    if logger:
-        logger.info("Saved data.", path=path)
-
-
-def read_dict(path, logger=None) -> list[FileInfo]:
-    if logger:
-        logger.info("Reading data.", path=path)
-    with open(path) as fp:
-        return json.load(fp)
-
-
 def build_text_file_tree_url(book_name: str) -> GithubApiUrl:
-    TEXT_FILE_DIR = "src/epub/text"
-    BASE_URL = f"https://api.github.com/repos/standardebooks/{book_name}/git/trees/master"
-    return BASE_URL + ":" + TEXT_FILE_DIR
+    return build_github_tree_api("standardebooks", book_name, "src/epub/text")
 
 
 def build_toc_file_url(book_name: str) -> GithubApiUrl:
-    TOC_FILE_DIR = "src/epub/toc.xhtml"
-    BASE_URL = f"https://api.github.com/repos/standardebooks/{book_name}/git/trees/master"
-    return BASE_URL + ":" + TOC_FILE_DIR
+    return build_github_file_api("standardebooks", book_name, "src/epub/toc.xhtml")
 
 
 def tree_info_path(book_name: str) -> Path:
-    return tarfetch_book_dir(book_name) / "info.json"
+    return target_book_dir(book_name) / "info.json"
 
 
-def tarfetch_book_dir(book_name: str) -> Path:
+def target_book_dir(book_name: str) -> Path:
     return Path(f"{BOOK_DIR}/{book_name}")
 
 
 def scrape_files(
     book_name: str, force=False, logger: BoundLogger = structlog.get_logger(__name__)
 ) -> None:
-    tree_info_chunk = read_dict(tree_info_path(book_name), logger)
+    tree_info_chunk: list[FileInfo] = read_dict(tree_info_path(book_name), logger)  # type: ignore
 
     for each_file_info in tree_info_chunk:
         github = GithubApiManager()
         try:
             # EXAMPLE: books/john-maynard-keynes_the-economic-consequences-of-the-peace/chapter-1.xhtml
-            tarfetch_path = tarfetch_book_dir(book_name) / each_file_info["path"]
-            if not force and tarfetch_path.exists():
+            target_path = target_book_dir(book_name) / each_file_info["path"]
+            if not force and target_path.exists():
                 logger.info(
                     "File already exists.",
-                    path=tarfetch_path,
+                    path=target_path,
                     book_name=book_name,
-                    fiil_name=tarfetch_path.name,
+                    fiil_name=target_path.name,
                 )
                 continue
             url = github.valivade_url(each_file_info["url"], "standardebooks", book_name)
             content_data = github.fetch_single_file_content_data(url)
             save_xhtml(
-                base64.b64decode(content_data["content"]).decode("utf-8"), tarfetch_path, logger
+                base64.b64decode(content_data["content"]).decode("utf-8"), target_path, logger
             )
         except Exception as e:
             logger.exception(
@@ -91,6 +67,7 @@ def scrape_files(
                 at="scrape_files",
                 file_path=each_file_info["path"],
                 error=str(e),
+                content_data=content_data,
             )
 
 
@@ -112,14 +89,19 @@ def save_tree_info(
 
 
 def fetch_raw_toc_file(
-    book_name: str, force: bool = False, logger: BoundLogger = structlog.fetch_logger(__name__)
+    book_name: str, force: bool = False, logger: BoundLogger = structlog.get_logger(__name__)
 ) -> None:
     if not force and Path(f"{BOOK_DIR}/{book_name}/toc.xhtml").exists():
         logger.info("toc.xhtml already exists.", book_name=book_name)
         return
     toc_file_url = build_toc_file_url(book_name)
     toc_file_info = GithubApiManager().fetch_single_file_content_data(toc_file_url)
-    toc_file_info["content"] = base64.b64decode(toc_file_info["content"]).decode("utf-8")
+    try:
+        toc_file_info["content"] = base64.b64decode(toc_file_info["content"]).decode("utf-8")
+    except Exception as e:
+        logger.exception(
+            "Failed to process file.", at="scrape_files", error=str(e), toc_file_info=toc_file_info
+        )
 
     save_chunk(toc_file_info, Path(f"{BOOK_DIR}/{book_name}/toc_file_info.json"), logger)
     save_xhtml(toc_file_info["content"], Path(f"{BOOK_DIR}/{book_name}/toc.xhtml"), logger)
@@ -128,35 +110,51 @@ def fetch_raw_toc_file(
 def fetch_all_repositories(
     force=False, logger: BoundLogger = structlog.get_logger(__name__)
 ) -> None:
-    if not force and Path("books/standardebooks_repositories.json").exists():
-        return
-    github_api = GithubApiManager()
-    repositories = github_api.fetch_all_user_repositories("standardebooks")
     today = datetime.now().strftime("%Y-%m-%d")
+    if not force and Path(f"{BOOK_DIR}/{today}_standardebooks_repositories.json").exists():
+        return
+    github = GithubApiManager()
+    repositories = github.fetch_all_user_repositories("standardebooks")
     save_chunk(repositories, Path(f"{BOOK_DIR}/{today}_standardebooks_repositories.json"), logger)
 
 
 def fetch_30_repositories(
-    force=False, logger: BoundLogger = structlog.get_logger(__name__)
-) -> None:
-    if not force and Path("books/standardebooks_repositories.json").exists():
-        return
-    github_api = GithubApiManager()
-    repositories = github_api.fetch_user_repositories("standardebooks")
-    import pprint
+    logger: BoundLogger = structlog.get_logger(__name__),
+) -> list[RepositoryInfo]:
+    file_path = Path(f"{BOOK_DIR}/trial_standardebooks_repositories.json")
+    if file_path.exists():
+        return read_dict(Path(f"{BOOK_DIR}/trial_standardebooks_repositories.json"), logger)  # type: ignore
+    github = GithubApiManager()
+    repositories = github.fetch_user_repositories("standardebooks")
+    save_chunk(repositories, file_path, logger)
 
-    pprint.pprint(repositories)
+    return repositories
+
+
+def fetch_book_data(
+    book_name: str, force=False, logger: BoundLogger = structlog.get_logger(__name__)
+) -> None:
+    fetch_raw_toc_file(book_name, force, logger)
+    save_tree_info(book_name, force, logger)
+    scrape_files(book_name, force, logger)
 
 
 def main():
-    book_name = "john-maynard-keynes_the-economic-consequences-of-the-peace"
     configure_logger()
 
     logger = structlog.get_logger(__name__)
 
-    fetch_raw_toc_file(book_name, False, logger)
-    scrape_files(book_name, True, logger)
-    fetch_30_repositories(False, logger)
+    title = "john-maynard-keynes_the-economic-consequences-of-the-peace"
+    fetch_book_data(title, False, logger)
+
+    repos = fetch_30_repositories(logger)
+    for repo in repos:
+        book_name = repo["name"]
+        print(book_name)
+        fetch_book_data(book_name, False, logger)
+
+    # save_chunk(repositories, Path(f"{BOOK_DIR}/{today}_standardebooks_repositories.json"), logger)
+
     # fetch_all_repositories(False, logger)
 
 

@@ -7,7 +7,6 @@ from typing import TypedDict
 import requests
 import structlog
 from pydantic import AnyUrl
-from pydantic import BaseModel
 from pydantic import UrlConstraints
 from structlog.stdlib import BoundLogger
 
@@ -15,14 +14,26 @@ from utils.logger_config import configure_logger
 
 GithubApiUrlDomain = "https://api.github.com"
 
+
+# DEBT: Not using pydantic was better and having type system consistency. It causes many `# type: ignore`.
 GithubApiUrl = Annotated[AnyUrl, UrlConstraints(allowed_schemes=[GithubApiUrlDomain])]
 
 
-def build_github_api_url(subdirectory: str) -> GithubApiUrl:
+def build_github_api_url(subdirectory: str) -> str:
     return GithubApiUrlDomain + subdirectory
 
 
+def build_github_file_api(owner: str, repo: str, path: str) -> GithubApiUrl:
+    return f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"  # type: ignore
+
+
+def build_github_tree_api(owner: str, repo: str, path: str) -> GithubApiUrl:
+    # EXAMPLE:f"https://api.github.com/repos/standardebooks/{title}/git/trees/master:src/epub/text"
+    return f"https://api.github.com/repos/{owner}/{repo}/git/trees/master:{path}"  # type: ignore
+
+
 class FileInfo(TypedDict):
+    # EXAMPLE: GitHub API response about file info without content itself.
     """{'path': 'chapter-1.xhtml',
     'mode': '100644',
     'type': 'blob',
@@ -39,13 +50,13 @@ class FileInfo(TypedDict):
 
 
 class ContentData(TypedDict):
-    r"""{
-      "sha": "31395a749154bf5fc9a234da87c5977b14e4ea50",
-      "node_id": "B_kwDOLjmri9oAKDMxMzk1YTc0OTE1NGJmNWZjOWEyMzRkYTg3YzU5NzdiMTRlNGVhNTA",
-      "size": 795,
-      "url": "https://api.github.com/repos/standardebooks/john-maynard-keynes_the-economic-consequences-of-the-peace/git/blobs/31395a749154bf5fc9a234da87c5977b14e4ea50",
-      "content": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPGh0bWwg\neG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiIHhtbG5zOmVw\ndWI9Imh0dHA6Ly93d3cuaWRwZi5vcmcvMjAwNy9vcHMiIGVwdWI6cHJlZml4\nPSJ6Mzk5ODogaHR0cDovL3d3dy5kYWlzeS5vcmcvejM5OTgvMjAxMi92b2Nh\nYi9zdHJ1Y3R1cmUvLCBzZTogaHR0cHM6Ly9zdGFuZGFyZGVib29rcy5vcmcv\ndm9jYWIvMS4wIiB4bWw6bGFuZz0iZW4tVVMiPgoJPGhlYWQ+CgkJPHRpdGxl\nPlRpdGxlcGFnZTwvdGl0bGU+CgkJPGxpbmsgaHJlZj0iLi4vY3NzL2NvcmUu\nY3NzIiByZWw9InN0eWxlc2hlZXQiIHR5cGU9InRleHQvY3NzIi8+CgkJPGxp\nbmsgaHJlZj0iLi4vY3NzL3NlLmNzcyIgcmVsPSJzdHlsZXNoZWV0IiB0eXBl\nPSJ0ZXh0L2NzcyIvPgoJPC9oZWFkPgoJPGJvZHkgZXB1Yjp0eXBlPSJmcm9u\ndG1hdHRlciI+CgkJPHNlY3Rpb24gaWQ9InRpdGxlcGFnZSIgZXB1Yjp0eXBl\nPSJ0aXRsZXBhZ2UiPgoJCQk8aDEgZXB1Yjp0eXBlPSJ0aXRsZSI+VGhlIEVj\nb25vbWljIENvbnNlcXVlbmNlcyBvZiB0aGUgUGVhY2U8L2gxPgoJCQk8cD5C\neSA8YiBlcHViOnR5cGU9InozOTk4OmF1dGhvciB6Mzk5ODpwZXJzb25hbC1u\nYW1lIj5Kb2huIE1heW5hcmQgS2V5bmVzPC9iPi48L3A+CgkJCTxpbWcgYWx0\nPSIiIHNyYz0iLi4vaW1hZ2VzL3RpdGxlcGFnZS5zdmciIGVwdWI6dHlwZT0i\nc2U6aW1hZ2UuY29sb3ItZGVwdGguYmxhY2stb24tdHJhbnNwYXJlbnQiLz4K\nCQk8L3NlY3Rpb24+Cgk8L2JvZHk+CjwvaHRtbD4K\n",
-      "encoding": "base64"
+    r"""GitHub API response about file content itself.
+    EXAMPLE: { "sha": "31395a749154bf5fc9a234da87c5977b14e4ea50",
+    "node_id": "B_kwDOLjmri9oAKDMxMzk1YTc0OTE1NGJmNWZjOWEyMzRkYTg3YzU5NzdiMTRlNGVhNTA",
+    "size": 795,
+    "url": "https://api.github.com/repos/standardebooks/john-maynard-keynes_the-economic-consequences-of-the-peace/git/blobs/31395a749154bf5fc9a234da87c5977b14e4ea50",
+    "content": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPGh0bWwg\neG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiIHhtbG5zOmVw\ndWI9Imh0dHA6Ly93d3cuaWRwZi5vcmcvMjAwNy9vcHMiIGVwdWI6cHJlZml4\nPSJ6Mzk5ODogaHR0cDovL3d3dy5kYWlzeS5vcmcvejM5OTgvMjAxMi92b2Nh\nYi9zdHJ1Y3R1cmUvLCBzZTogaHR0cHM6Ly9zdGFuZGFyZGVib29rcy5vcmcv\ndm9jYWIvMS4wIiB4bWw6bGFuZz0iZW4tVVMiPgoJPGhlYWQ+CgkJPHRpdGxl\nPlRpdGxlcGFnZTwvdGl0bGU+CgkJPGxpbmsgaHJlZj0iLi4vY3NzL2NvcmUu\nY3NzIiByZWw9InN0eWxlc2hlZXQiIHR5cGU9InRleHQvY3NzIi8+CgkJPGxp\nbmsgaHJlZj0iLi4vY3NzL3NlLmNzcyIgcmVsPSJzdHlsZXNoZWV0IiB0eXBl\nPSJ0ZXh0L2NzcyIvPgoJPC9oZWFkPgoJPGJvZHkgZXB1Yjp0eXBlPSJmcm9u\ndG1hdHRlciI+CgkJPHNlY3Rpb24gaWQ9InRpdGxlcGFnZSIgZXB1Yjp0eXBl\nPSJ0aXRsZXBhZ2UiPgoJCQk8aDEgZXB1Yjp0eXBlPSJ0aXRsZSI+VGhlIEVj\nb25vbWljIENvbnNlcXVlbmNlcyBvZiB0aGUgUGVhY2U8L2gxPgoJCQk8cD5C\neSA8YiBlcHViOnR5cGU9InozOTk4OmF1dGhvciB6Mzk5ODpwZXJzb25hbC1u\nYW1lIj5Kb2huIE1heW5hcmQgS2V5bmVzPC9iPi48L3A+CgkJCTxpbWcgYWx0\nPSIiIHNyYz0iLi4vaW1hZ2VzL3RpdGxlcGFnZS5zdmciIGVwdWI6dHlwZT0i\nc2U6aW1hZ2UuY29sb3ItZGVwdGguYmxhY2stb24tdHJhbnNwYXJlbnQiLz4K\nCQk8L3NlY3Rpb24+Cgk8L2JvZHk+CjwvaHRtbD4K\n",
+    "encoding": "base64"
     }.
     """
 
@@ -58,10 +69,11 @@ class ContentData(TypedDict):
 
 
 class RepositoryInfo(TypedDict):
-    """{'name': 'a-a-milne_the-red-house-mystery',
-    'url': 'https://github.com/standardebooks/a-a-milne_the-red-house-mystery',
-    'owner': 'standardebooks',
-    'description': 'Epub source for the Standard Ebooks edition of The Red House Mystery, by A. A. Milne'}.
+    """GithubApi response of a single repository info chunk.
+    {'name': 'a-a-milne_the-red-house-mystery',
+    "url": "https://github.com/standardebooks/a-a-milne_the-red-house-mystery",
+    "owner": "standardebooks",
+    "description": "Epub source for the Standard Ebooks edition of The Red House Mystery, by A. A. Milne"}.
     """
 
     name: str
@@ -71,6 +83,15 @@ class RepositoryInfo(TypedDict):
 
 
 class GithubApiManager:
+    """A class to manage GitHub API requests.
+    This is single independent class to manage all GitHub API requests.
+    This is used from many modules, so this should be neutral.
+
+    Attributes:
+    logger: A logger object for logging API requests and responses.
+    headers: A dictionary of headers for API requests.
+    """
+
     def __init__(self) -> None:
         self.logger = structlog.get_logger(__name__).bind(module="github_api")
         access_token = os.environ["GITHUB_PERSONAL_ACCESS_TOKEN"]
@@ -88,24 +109,27 @@ class GithubApiManager:
             self.logger.debug("API Request Successful", url=url, status_code=status_code)
 
     def fetch_file_tree_info(self, file_tree_url: GithubApiUrl) -> list[FileInfo]:
-        self._log_api_request(file_tree_url)
-        response = requests.get(file_tree_url, headers=self.headers)
-        self._log_api_response(file_tree_url, response.status_code, response.text)
+        self._log_api_request(file_tree_url)  # type: ignore
+        response = requests.get(file_tree_url, headers=self.headers)  # type: ignore
+        self._log_api_response(file_tree_url, response.status_code, response.text)  # type: ignore
 
         if response.status_code == 200:
             return response.json()["tree"]
         else:
             msg = "Failed to get tree info."
+            if response.text:
+                msg += f" Response: {response.text}"
+
             raise Exception(msg)
 
     def fetch_single_file_content_data(self, file_api_url: GithubApiUrl) -> ContentData:
-        self._log_api_request(file_api_url)
-        response = requests.get(file_api_url, headers=self.headers)
-        self._log_api_response(file_api_url, response.status_code, response.text)
+        self._log_api_request(file_api_url)  # type: ignore
+        response = requests.get(file_api_url, headers=self.headers)  # type: ignore
+        self._log_api_response(file_api_url, response.status_code, response.text)  # type: ignore
         return response.json()
 
-    def fetch_user_repositories(self, username: str) -> list[RepositoryInfo]:
-        api_url = build_github_api_url(f"/users/{username}/repos")
+    def fetch_user_repositories(self, user_name: str) -> list[RepositoryInfo]:
+        api_url = build_github_api_url(f"/users/{user_name}/repos")
         self._log_api_request(api_url)
         response = requests.get(api_url, headers=self.headers)
         self._log_api_response(api_url, response.status_code, response.text)
@@ -126,9 +150,9 @@ class GithubApiManager:
             msg = "Failed to get repositories."
             raise Exception(msg)
 
-    def fetch_all_user_repositories(self, username: str) -> list[RepositoryInfo]:
+    def fetch_all_user_repositories(self, user_name: str) -> list[RepositoryInfo]:
         repositories: list[RepositoryInfo] = []
-        api_url = build_github_api_url(f"/users/{username}/repos")
+        api_url = build_github_api_url(f"/users/{user_name}/repos")
         while api_url:
             response = requests.get(api_url, headers=self.headers)
             if response.status_code == 200:
@@ -138,7 +162,7 @@ class GithubApiManager:
                     links = link_header.split(",")
                     for link in links:
                         if 'rel="next"' in link:
-                            # MAYBE: I don't need to validate link.
+                            # MAY: I don't need to validate this link. But volunerable to injection attack.
                             api_url = link.strip().split(";")[0][1:-1]
                             break
                     else:
@@ -157,9 +181,9 @@ class GithubApiManager:
         # WARNING: If attecker pushes injection attack file at master branch, this implementation will be vulnerable.
         # WARNING: If author or title contains "/", this implementation will be vulnerable.
         # WARNING: If author or title is not ASCII, you need to encode it to ASCII.
-        # EXAMPLE: https://api.github.com/repos/standardebooks/john-maynard-keynes_the-economic-consequences-of-the-peace/git/blobs/fdde73b43549194faeac89a38adee574ab378511
         if url.startswith(GithubApiUrlDomain + f"/repos/{author}/{title}"):
-            return url
+            # EXAMPLE: https://api.github.com/repos/standardebooks/john-maynard-keynes_the-economic-consequences-of-the-peace/git/blobs/fdde73b43549194faeac89a38adee574ab378511
+            return url  # type: ignore
         else:
             expected = GithubApiUrlDomain + f"/repos/{author}/{title}"
             self.logger.error("Invalid URL.", url=url, expected=expected)
@@ -174,10 +198,10 @@ def main():
 
     title = "john-maynard-keynes_the-economic-consequences-of-the-peace"
     github = GithubApiManager()
-    text_file_tree_url = (
-        f"https://api.github.com/repos/standardebooks/{title}/git/trees/master:src/epub/text"
+    text_file_tree_url: GithubApiUrl = (
+        f"https://api.github.com/repos/standardebooks/{title}/git/trees/master:src/epub/text"  # type: ignore
     )
-    tree_info = github.fetch_file_tree_info(text_file_tree_url)
+    tree_info = github.fetch_file_tree_info(text_file_tree_url)  # type: ignore
     for file_info in tree_info:
         try:
             if file_info["type"] != "blob":
@@ -201,7 +225,7 @@ def main():
     username = "standardebooks"
     repositories = github.fetch_user_repositories(username)
 
-    toc_url = f"https://api.github.com/repos/standardebooks/{title}/contents/src/epub/toc.xhtml?ref=master"
+    toc_url: GithubApiUrl = f"https://api.github.com/repos/standardebooks/{title}/contents/src/epub/toc.xhtml?ref=master"  # type: ignore
     toc_data = github.fetch_single_file_content_data(toc_url)
     print(toc_data["content"])
 

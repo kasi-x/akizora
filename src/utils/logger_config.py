@@ -1,15 +1,20 @@
 """logger_config.py: This module configures the logging.
 This module uses structlog to configure logging.
 """
+
 import logging
 import sys
+from typing import Literal
 
 import structlog
 from structlog.dev import ConsoleRenderer
 from structlog.processors import JSONRenderer
 
 
-def configure_logger():
+def configure_logger(
+    logging_level: int
+    | Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "FATAL"] = logging.INFO,
+) -> None:
     """Configures the global logging settings for the application using structlog and Python's built-in logging module.
 
     This function applies various processors to the logs, including adding log level, logger name, and timestamp,
@@ -52,4 +57,18 @@ def configure_logger():
     root_logger = logging.getLogger()
     root_logger.addHandler(handler_stdout)
     root_logger.addHandler(handler_file)
-    root_logger.setLevel(logging.DEBUG)
+    match logging_level:
+        case int():
+            root_logger.setLevel(logging_level)
+        case "DEBUG":
+            root_logger.setLevel(logging.DEBUG)
+        case "INFO":
+            root_logger.setLevel(logging.INFO)
+        case "WARNING":
+            root_logger.setLevel(logging.WARNING)
+        case "ERROR":
+            root_logger.setLevel(logging.ERROR)
+        case "CRITICAL", "FATAL":
+            root_logger.setLevel(logging.CRITICAL)
+        case _:
+            root_logger.setLevel(logging.INFO)

@@ -1,16 +1,21 @@
 import json
+import os
 from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
 from typing import Optional
 
+import structlog
 from lxml import etree
 from lxml.etree import Element
 from lxml.etree import HTMLParser
+from structlog.stdlib import BoundLogger
 
-# import structlog
-# from structlog.stdlib import BoundLogger
+from utils.logger_config import configure_logger
+
+BOOK_DIR = Path(os.environ.get("BOOK_DIR", "/books"))
+
 
 namespaces = {"xhtml": "http://www.w3.org/1999/xhtml"}
 
@@ -68,6 +73,8 @@ def process_raw_chapters_into_formated(
         Chapter(
             title=raw_chapter.xpath("a/text()")[0] if raw_chapter.xpath("a/text()") else "",
             href=raw_chapter.xpath("a/@href")[0] if raw_chapter.xpath("a/@href") else "",
+            # //section[@id='chapter-39']/@id
+            # //section[@id='chapter-39']/@epub:type
             nest_level=nest_level,
             span=raw_chapter.xpath("a/span/text()")[0]
             if raw_chapter.xpath("a/span/text()")
@@ -108,15 +115,50 @@ def show(element):
 # pprint(chapters)
 
 
-def main():
+def tutorial():
     title = "john-maynard-keynes_the-economic-consequences-of-the-peace"
     with open(Path(f"/home/user/dev/kasi-x/akizora/books/{title}/toc.xhtml")) as file:
         xml_data = file.read().rstrip().encode("utf-8")
-    # with open(Path(f"/home/user/dev/kasi-x/akizora/books/{title}/toc.xhtml")) as file:
-    # toc_file_info = [data for json.load(file) if file["path"] == "toc.xhtml"]
 
     # title = find_file_title(xml_data)
     chapters = create_formated_chapters(xml_data)
 
     with open(Path(f"/home/user/dev/kasi-x/akizora/books/{title}/toc.json"), "w") as fp:
         json.dump([c.to_dict() for c in chapters], fp)
+
+
+def process_repo(repo_dir: Path, logger: BoundLogger) -> None:
+    if not (repo_dir / "toc.xhtml").exists():
+        logger.warning("toc.xhtml does not exist", repo_path=repo_dir)
+        return
+
+    if (repo_dir / "toc.json").exists():
+        logger.info("toc.json already exists", repo_path=repo_dir)
+        return
+
+    try:
+        with open(repo_dir / "toc.xhtml") as file:
+            xml_data = file.read().rstrip().encode("utf-8")
+
+        chapters = create_formated_chapters(xml_data)
+
+        with open(repo_dir / "toc.json", "w") as fp:
+            json.dump([c.to_dict() for c in chapters], fp)
+
+        logger.info("toc.json created", repo_path=repo_dir)
+
+    except Exception as e:
+        logger.exception("Failed to process repo", repo_path=repo_dir, exception=e)
+
+
+def main():
+    configure_logger()
+    logger = structlog.get_logger(__name__)
+
+    for repo_dir in list(BOOK_DIR.glob("*")):
+        if repo_dir.is_dir():
+            process_repo(repo_dir, logger)
+
+
+if __name__ == "__main__":
+    main()
