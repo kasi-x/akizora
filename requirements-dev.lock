@@ -218,6 +218,7 @@ jupyterlab-server==2.26.0
 langcodes==3.3.0
     # via spacy
 lxml==5.2.1
+lxml-stubs==0.5.1
 markdown-it-py==3.0.0
     # via rich
 markupsafe==2.1.5

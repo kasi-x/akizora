@@ -23,6 +23,7 @@ dependencies = [
     "bunkai>=1.5.2",
     "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl",
     "setuptools>=69.2.0",
+    "lxml-stubs>=0.5.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"
@@ -192,6 +193,7 @@ lint.task-tags = [
     "PILOT",
     "UNEXPLORED",
 
+
     # Decision Rationale
     "WHYNOT",
     "PURPOSE",
@@ -244,12 +246,23 @@ lint.task-tags = [
     "DOC-ENHANCE",
     "CLEANUP",
 
-    # Security and Compliance
+    # Compliance
     "SECURE",
     "PRIVACY",
     "ILLEGAL",
     "ACCESSIBILITY",
     "LOCALIZE",
+
+    # Security #RFC2119
+    "MUST",
+    "MUST_NOT",
+    "REQUIRED",
+    "SHALL",
+    "SHALL_NOT",
+    "SHOULD",
+    "SHOULD_NOT",
+    "RECOMMENDED",
+    "MAY",
 
     # Legacy Management
     "DEPRECATE",
