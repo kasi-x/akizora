@@ -7,7 +7,6 @@ from pathlib import Path
 import structlog
 from structlog.stdlib import BoundLogger
 
-from scrayping.github_api import ContentData
 from scrayping.github_api import FileInfo
 from scrayping.github_api import GithubApiManager
 from scrayping.github_api import GithubApiUrl

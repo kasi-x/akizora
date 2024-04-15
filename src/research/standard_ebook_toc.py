@@ -22,7 +22,7 @@ namespaces = {"xhtml": "http://www.w3.org/1999/xhtml"}
 
 @dataclass
 class Chapter:
-    title: str = field(init=False)
+    title: str
     number: str
     name: str
     href: str
@@ -42,15 +42,6 @@ class Chapter:
     alexander-pushkin_eugene-onegin_henry-spalding
     adam-smith_the-wealth-of-nations
     """
-
-    def __post_init__(self):
-        self.subchapters = process_raw_chapters_into_formated(
-            raw_chapters=self.subchapters,  # type: ignore
-            query=self.query + "/ol/li",
-            nest_level=self.nest_level + 1,
-            url=self.url,
-        )
-        self.title = "".join(self.number + self.name)
 
     def to_dict(self):
         if self.subchapters:
@@ -96,15 +87,35 @@ def make_chapter(a_element: Element, query: str, nest_level: int, url: str, inde
             return result[0]  # type: ignore # reason at parse_from_xml_data
         return ""
 
+    query = query + f"[{index}]" if query else ""
+
     return Chapter(
+        title=" ".join(
+            get_query_result_with_check(a_element, "a/span/text()"),
+            get_query_result_with_check(a_element, "a/text()"),
+        ),
         number=get_query_result_with_check(a_element, "a/span/text()"),
         name=get_query_result_with_check(a_element, "a/text()"),
         href=get_query_result_with_check(a_element, "a/@href"),
         nest_level=nest_level,
-        query=query + f"[{index}]" if query else "",
+        query=query,
         url=url,
-        subchapters=a_element.xpath("ol/li"),  # type: ignore
+        subchapters=[
+            make_chapter(a_sub_element, query + "/ol/li", nest_level + 1, url, index)  # type: ignore
+            for index, a_sub_element in enumerate(a_element.xpath("ol/li"), start=1)  # type: ignore
+            if isinstance(a_element.xpath(query + "ol/li"), list)
+        ],
     )
+
+
+def __post_init__(self):
+    self.subchapters = process_raw_chapters_into_formated(
+        raw_chapters=self.subchapters,  # type: ignore
+        query=self.query + "/ol/li",
+        nest_level=self.nest_level + 1,
+        url=self.url,
+    )
+    self.title = "".join(self.number + self.name)
 
 
 # //section[@id='chapter-39']/@id
