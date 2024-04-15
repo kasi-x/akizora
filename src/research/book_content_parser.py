@@ -16,6 +16,7 @@ from structlog.stdlib import BoundLogger
 
 # from data_adapter.standard_ebook_toc import Chapter
 from utils.data_io import read_dict
+from utils.data_io import read_xhtml
 from utils.data_io import save_chunk
 from utils.data_io import save_xhtml
 from utils.logger_config import configure_logger
@@ -118,12 +119,21 @@ def load_chapters_from_json(json_path: str) -> list[Chapter]:
     return chapters
 
 
+def get_content_from_xhtml(xhtml: str) -> str:
+    # pass
+    parser = HTMLParser()
+    tree = etree.fromstring(xhtml, parser)
+    content = tree.xpath("//body")[0]
+    return etree.tostring(content, pretty_print=True).decode("utf-8")
+
+
 def main():
     configure_logger()
     logger = structlog.get_logger(__name__)
     book_paths = read_dict(BOOK_DIR / "easy_readable_books.json", logger)
     target_book = book_paths[0]
     toc: list[Chapter] = load_chapters_from_json(target_book + "/toc.json")
+    target_files = []
     for file in toc:
         match file.title:
             case "Titlepage":
@@ -135,7 +145,13 @@ def main():
             case "Uncopyright":
                 pass
             case _:
-                print(file.title)
+                target_files.append(target_book + "/" + file.href.split("text/")[-1])
+                # pprint(file.title)
+                # pprint(file.title)
+
+                # read_xhtml(target_book + "/" + file.href.split("text/")[-1], logger))
+
+    get_content_from_xhtml(read_xhtml(target_files[0]))
 
 
 if __name__ == "__main__":

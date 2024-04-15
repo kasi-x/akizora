@@ -31,3 +31,10 @@ def read_dict(path, logger=None) -> list:
         logger.info("Reading data.", path=path)
     with open(path) as fp:
         return json.load(fp)
+
+
+def read_xhtml(path: Path | str, logger=None) -> str:
+    if logger:
+        logger.info("Reading data.", path=path)
+    with open(path) as fp:
+        return fp.read()
