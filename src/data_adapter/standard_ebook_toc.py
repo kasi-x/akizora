@@ -22,8 +22,6 @@ namespaces = {"xhtml": "http://www.w3.org/1999/xhtml"}
 
 @dataclass
 class Chapter:
-    """input data format is like this <a href="text/chapter-3.xhtml"><span epub:type="z3998:roman">III</span>: The Conference</a>."""
-
     title: str = field(init=False)
     number: str
     name: str
@@ -32,6 +30,18 @@ class Chapter:
     query: str
     url: str
     subchapters: list[Self | Element] = field(default_factory=list)
+    """ # EXAMPLE:
+    title : 'III: The Division of Labour'
+    number: 'III'
+    name : ': The Division of Labour'
+    ## MEMO: I hate this format.
+
+    # MEMO:nest level:
+    these book nest_levl is very deep. max is 5.
+    aleksandr-kuprin_short-fiction_s-koteliansky_j-m-murry_stephen-graham_rosa-savory-graham_leo-pasvols
+    alexander-pushkin_eugene-onegin_henry-spalding
+    adam-smith_the-wealth-of-nations
+    """
 
     def __post_init__(self):
         self.subchapters = process_raw_chapters_into_formated(
@@ -79,6 +89,8 @@ def process_raw_chapters_into_formated(
 
 
 def make_chapter(a_element: Element, query: str, nest_level: int, url: str, index: int) -> Chapter:
+    # EXAMPLE: `<a href="text/chapter-3.xhtml"><span epub:type="z3998:roman">III</span>: The Conference</a>`.
+
     def get_query_result_with_check(element: Element, query: str) -> str:
         if result := element.xpath(query):
             return result[0]  # type: ignore # reason at parse_from_xml_data
