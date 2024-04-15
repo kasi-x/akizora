@@ -10,8 +10,8 @@ from pathlib import Path
 import requests
 import structlog
 from lxml import etree
-from lxml.etree import Element
 from lxml.etree import XMLParser
+from lxml.etree import _Element as Element
 
 
 @dataclass

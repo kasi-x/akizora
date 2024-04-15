@@ -26,7 +26,7 @@ def save_xhtml(data: str, path: Path, logger: BoundLogger) -> None:
         logger.info("Saved data.", path=path)
 
 
-def read_dict(path, logger=None) -> list[FileInfo | RepositoryInfo]:
+def read_dict(path, logger=None) -> list:
     if logger:
         logger.info("Reading data.", path=path)
     with open(path) as fp:

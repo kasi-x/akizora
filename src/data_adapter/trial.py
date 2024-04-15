@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
 from pprint import pprint
+from typing import TYPE_CHECKING
 from typing import Self
 
 import structlog
@@ -19,6 +20,9 @@ from utils.data_io import read_dict
 from utils.data_io import save_chunk
 from utils.data_io import save_xhtml
 from utils.logger_config import configure_logger
+
+if TYPE_CHECKING:
+    from scrayping.github_api import RepositoryInfo
 
 BOOK_DIR = Path(os.environ.get("BOOK_DIR", "/books"))
 file_name_counter = Counter()
