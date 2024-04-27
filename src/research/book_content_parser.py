@@ -21,46 +21,6 @@ from utils.data_io import save_chunk
 from utils.data_io import save_xhtml
 from utils.logger_config import configure_logger
 
-BOOK_DIR = Path(os.environ.get("BOOK_DIR", "/books"))
-file_name_counter = Counter()
-
-
-def grep_chapter_books():
-    good_repos = []
-    for repo_dir in list(BOOK_DIR.glob("*")):
-        if repo_dir.is_dir():
-            for file_path in repo_dir.glob("*"):
-                if file_path.is_file() and file_path.name.startswith("chapter-1"):
-                    good_repos.append(repo_dir)
-                    break
-    return good_repos
-
-
-def get_max_nest_level(chapters):
-    max_result = 0
-    for chapter in chapters:
-        if sub_chapters := chapter.get("subchapters"):
-            max_result = max(get_max_nest_level(sub_chapters), max_result)
-        else:
-            max_result = max(chapter["nest_level"], max_result)
-    return max_result
-
-
-def grep_shallow_nested_books(repos: list[Path]):
-    results = []
-    for repo_dir in repos:
-        chapters = read_dict(repo_dir / "toc.json")
-        print(f"f{repo_dir} has {len(chapters)} chapters.")
-        if not chapters:
-            continue
-        nest_level = get_max_nest_level(chapters)
-        if 1 <= nest_level < 2:
-            print(f"{repo_dir} append: {nest_level}")
-            results.append(repo_dir)
-        else:
-            print(f"{repo_dir} has deep nest level: {nest_level}")
-    return results
-
 
 @dataclass
 class Chapter:
@@ -119,39 +79,93 @@ def load_chapters_from_json(json_path: str) -> list[Chapter]:
     return chapters
 
 
-def get_content_from_xhtml(xhtml: str) -> str:
-    # pass
+# def get_content_from_xhtml(xhtml: str) -> str:
+#     parser = HTMLParser()
+#     tree: Element = etree.fromstring(xhtml, parser)
+#     content = tree.xpath("//body")[3]
+#     return etree.tostring(content, pretty_print=True).decode("utf-8")
+
+
+def show(element: Element | list[Element]) -> None:
+    # This is for debugging.
+    if len(element) == 0:
+        print("No elements are found.")
+    if isinstance(element, list):
+        print(f"{len(element)} elements are found.")
+        print("{:=^30}".format(" Show Data "))
+        for _i, e in enumerate(element, 1):
+            print(f"{_i:=^30}")
+            show(e)
+    if isinstance(element, Element):
+        print(etree.tostring(element, pretty_print=True, encoding=str))
+    else:
+        print("No elements are found.")
+
+
+BOOK_DIR = Path("/home/user/dev/kasi-x/akizora/tutorial_data/chaptered/nest_0/")
+
+configure_logger()
+logger = structlog.get_logger(__name__)
+dirs = BOOK_DIR.glob("*")
+for target_book in dirs:
+    toc: list[Chapter] = load_chapters_from_json(target_book / "toc.json")
+
+print(target_book)
+target_files = []
+for file in toc:
+    match file.title:
+        case "Titlepage":
+            pass
+        case "Imprint":
+            pass
+        case "Colophon":
+            pass
+        case "Uncopyright":
+            pass
+        case "halftitlepage":
+            pass
+        case _:
+            target_files.append(file)
+            # target_file_and_id[target_book + "/" + file.href.split("text/")[-1]] = (
+            # file.href.split("text/")[-1].split("#")[-1].split(".xhtml")[0]
+            # )
+            # pprint(file)
+            pprint(file.title)
+
+            # read_xhtml(target_book + "/" + file.href.split("text/")[-1], logger))
+result_dict = {}
+for target_file in target_files:
+    id = target_file.href.split("text/")[-1].split("#")[-1].split(".xhtml")[0]
+    # print("=" * 40)
+    # print(id)
+
     parser = HTMLParser()
+    file_path = target_book / target_file.href.split("text/")[-1]
+    xhtml = read_xhtml(file_path).encode("utf-8")
     tree = etree.fromstring(xhtml, parser)
-    content = tree.xpath("//body")[0]
-    return etree.tostring(content, pretty_print=True).decode("utf-8")
+    show(tree)
+    # show(tree.xpath("//body")[0])
+    etree.tostring(tree, pretty_print=True).decode("utf-8")
 
+    # print(tree.xpath(f"//section[@id={id}"))
+    print("=" * 40)
+    # print(tree.xpath(f"//body/section[@id={id}]"))
 
-def main():
-    configure_logger()
-    logger = structlog.get_logger(__name__)
-    book_paths = read_dict(BOOK_DIR / "easy_readable_books.json", logger)
-    target_book = book_paths[0]
-    toc: list[Chapter] = load_chapters_from_json(target_book + "/toc.json")
-    target_files = []
-    for file in toc:
-        match file.title:
-            case "Titlepage":
-                pass
-            case "Imprint":
-                pass
-            case "Colophon":
-                pass
-            case "Uncopyright":
-                pass
-            case _:
-                target_files.append(target_book + "/" + file.href.split("text/")[-1])
-                # pprint(file.title)
-                # pprint(file.title)
-
-                # read_xhtml(target_book + "/" + file.href.split("text/")[-1], logger))
-
-    get_content_from_xhtml(read_xhtml(target_files[0]))
+    show(tree.xpath(f"//section[@id='{id}']/p"))
+    for element in tree.xpath(f"//section[@id='{id}']/p"):
+        for text in element.itertext():
+            print(text.strip())
+    print("+" * 40)
+    result = []
+    for element in tree.xpath(f"//section[@id='{id}']/p"):
+        for text in element.itertext():
+            text = text.strip()
+            if len(text) == 0:
+                result.append("\n")
+            else:
+                result.append(text)
+    print(" ".join(result))
+    result_dict[target_file.title] = " ".join(result)
 
 
 if __name__ == "__main__":
